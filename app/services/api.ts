@@ -28,7 +28,36 @@ class ApiService {
       const response = await fetch(url, config);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorMessage = `HTTP error! status: ${response.status}`;
+
+        try {
+          const errorText = await response.text();
+
+          if (errorText) {
+            try {
+              const errorData = JSON.parse(errorText);
+              const apiMessage =
+                errorData?.mensagem ||
+                errorData?.erro ||
+                errorData?.message ||
+                errorData?.detail;
+
+              if (apiMessage) {
+                errorMessage = `HTTP ${response.status}: ${apiMessage}`;
+              } else {
+                errorMessage = `HTTP ${response.status}: ${errorText}`;
+              }
+            } catch {
+              errorMessage = `HTTP ${response.status}: ${errorText}`;
+            }
+          }
+        } catch (parseError) {
+          console.error("Erro ao ler resposta de erro:", parseError);
+        }
+
+        const error = new Error(errorMessage);
+        (error as Error & { status?: number }).status = response.status;
+        throw error;
       }
 
       // Safely handle empty responses (e.g., 204) before parsing JSON

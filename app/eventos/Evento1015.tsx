@@ -1,13 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Save, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiService } from "../services/api";
-import {
-  notifyError,
-  notifySuccess,
-} from "../components/NotificationsProvider";
+import { notifyError, notifySuccess } from "../components/NotificationsProvider";
 import type { OrdemServico } from "../types/os";
 
 type TipoEvento = 10 | 15;
@@ -76,9 +73,36 @@ export default function Evento1015({
   const [descricaoPosto, setDescricaoPosto] = useState<string>("");
   const [erroPosto, setErroPosto] = useState<string | null>(null);
   const [buscandoPosto, setBuscandoPosto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
 
-  const titulo = tipoEvento === 10 ? "Início de Carga" : "Término de Carga";
-  const eventoTexto = tipoEvento === 10 ? "evento 10" : "evento 15";
+  const titulo = tipoEvento === 10 ? "Inicio de Carga" : "Termino de Carga";
+
+  const getApiErrorMessage = (error: unknown, fallback: string) => {
+    if (error && typeof error === "object") {
+      const status = (error as { status?: number }).status;
+      const message = (error as { message?: string }).message;
+      if (status && [400, 402, 404].includes(status) && message) {
+        const cleaned = message.replace(/^HTTP\s*\d+:\s*/i, "").trim();
+        return cleaned || fallback;
+      }
+      if (message) {
+        return message;
+      }
+    }
+    return fallback;
+  };
+
+  function formatarDataHoraAtual() {
+    const agora = new Date();
+    const pad = (valor: number) => valor.toString().padStart(2, "0");
+    const dia = pad(agora.getDate());
+    const mes = pad(agora.getMonth() + 1);
+    const ano = agora.getFullYear();
+    const hora = pad(agora.getHours());
+    const minuto = pad(agora.getMinutes());
+    const segundo = pad(agora.getSeconds());
+    return `${dia}/${mes}/${ano} ${hora}:${minuto}:${segundo}`;
+  }
 
   function limparResultado() {
     setLinhas([]);
@@ -88,7 +112,7 @@ export default function Evento1015({
   async function consultarCarga() {
     const numero = data.num_carga.trim();
     if (!numero) {
-      setErroBusca("Informe o número da carga para pesquisar.");
+      setErroBusca("Informe o numero da carga para pesquisar.");
       limparResultado();
       return;
     }
@@ -107,7 +131,12 @@ export default function Evento1015({
       }
     } catch (error) {
       console.error(error);
-      setErroBusca("Não foi possível consultar a carga.");
+      const mensagem = getApiErrorMessage(
+        error,
+        "Nao foi possivel consultar a carga."
+      );
+      setErroBusca(mensagem);
+      notifyError(mensagem);
       limparResultado();
     } finally {
       setBuscando(false);
@@ -117,7 +146,7 @@ export default function Evento1015({
   async function consultarOS() {
     const numero = data.num_os.trim();
     if (!numero) {
-      setErroBusca("Informe o número da OS para pesquisar.");
+      setErroBusca("Informe o numero da OS para pesquisar.");
       limparResultado();
       return;
     }
@@ -140,7 +169,12 @@ export default function Evento1015({
       }
     } catch (error) {
       console.error(error);
-      setErroBusca("Não foi possível consultar a OS.");
+      const mensagem = getApiErrorMessage(
+        error,
+        "Não foi possível consultar a OS."
+      );
+      setErroBusca(mensagem);
+      notifyError(mensagem);
       limparResultado();
     } finally {
       setBuscando(false);
@@ -170,7 +204,12 @@ export default function Evento1015({
     } catch (error) {
       console.error(error);
       setNomeOperador("");
-      setErroOperador("Não foi possível consultar o operador.");
+      const mensagem = getApiErrorMessage(
+        error,
+        "Não foi possível consultar o operador."
+      );
+      setErroOperador(mensagem);
+      notifyError(mensagem);
     } finally {
       setBuscandoOperador(false);
     }
@@ -199,57 +238,100 @@ export default function Evento1015({
     } catch (error) {
       console.error(error);
       setDescricaoPosto("");
-      setErroPosto("Não foi possível consultar o posto.");
+      const mensagem = getApiErrorMessage(
+        error,
+        "Não foi possível consultar o posto."
+      );
+      setErroPosto(mensagem);
+      notifyError(mensagem);
     } finally {
       setBuscandoPosto(false);
     }
   }
 
-  function salvar() {
-    // Validar campos obrigatórios
+  async function salvar() {
     const erros: string[] = [];
 
-    // Validar se tem carga ou OS
-    if (!data.num_carga.trim() && !data.num_os.trim()) {
-      erros.push("É necessário informar o número da carga ou da OS.");
+    if (tipoEvento === 10 && !data.num_carga.trim()) {
+      erros.push("O número da carga e obrigatorio para o evento 10.");
     }
 
-    // Validar se os campos foram pesquisados com sucesso
+    if (!data.num_carga.trim() && !data.num_os.trim()) {
+      erros.push("E necessario informar o numero da carga ou da OS.");
+    }
+
     if (data.num_carga.trim() && linhas.length === 0) {
-      erros.push(
-        "É necessário pesquisar e encontrar dados válidos para a carga."
-      );
+      erros.push("É necessário pesquisar e encontrar dados válidos para a carga.");
     }
 
     if (data.num_os.trim() && linhas.length === 0) {
       erros.push("É necessário pesquisar e encontrar dados válidos para a OS.");
     }
 
-    // Validar posto de trabalho
     if (!data.posto_trab.trim()) {
-      erros.push("O campo Posto de Trabalho é obrigatório.");
+      erros.push("O campo Posto de Trabalho e obrigatorio.");
     } else if (!descricaoPosto || erroPosto) {
-      erros.push(
-        "É necessário pesquisar e encontrar um posto de trabalho válido."
-      );
+      erros.push("É necessário pesquisar e encontrar um posto de trabalho válido.");
     }
 
-    // Validar operador
     if (!data.operador.trim()) {
-      erros.push("O campo Operador é obrigatório.");
+      erros.push("O campo Operador e obrigatório.");
     } else if (!nomeOperador || erroOperador) {
-      erros.push("É necessário pesquisar e encontrar um operador válido.");
+      erros.push("E necessario pesquisar e encontrar um operador valido.");
     }
 
     if (erros.length > 0) {
-      notifyError("Erro(s) de validação:\n\n" + erros.join("\n"), {
+      notifyError("Erro(s) de validação:\\n\\n" + erros.join("\\n"), {
         style: { whiteSpace: "pre-line" },
       });
       return;
     }
 
-    console.log(`Enviando ${eventoTexto}:`, data);
-    notifySuccess(`${titulo} salvo!`);
+    setSalvando(true);
+    try {
+      const payload = {
+        numero_carga: parseInt(data.num_carga.trim()) || 0,
+        numero_os: data.num_os.trim(),
+        data_hora_coletor: formatarDataHoraAtual(),
+        codigo_pessoa: data.operador.trim(),
+        codigo_forno: data.posto_trab.trim(),
+        tipo_lcto: tipoEvento.toString(),
+      };
+
+      const response = (await apiService.post("/lancamentos", payload)) as {
+        sucesso?: boolean;
+        mensagem?: string;
+      };
+
+      if (response?.sucesso || response?.mensagem) {
+        notifySuccess(response.mensagem || `${titulo} salvo!`);
+      } else {
+        notifySuccess(`${titulo} salvo!`);
+      }
+    } catch (error: unknown) {
+      console.error(error);
+
+      let errorMessage = "Não foi possível salvar o evento.";
+
+      if (error && typeof error === "object" && "response" in error) {
+        const apiError = error as {
+          response: { data: { erro?: string; mensagem?: string } };
+        };
+        if (apiError.response?.data?.erro) {
+          errorMessage = apiError.response.data.erro;
+        } else if (apiError.response?.data?.mensagem) {
+          errorMessage = apiError.response.data.mensagem;
+        }
+      } else if (error && typeof error === "object" && "message" in error) {
+        const basicError = error as { message: string };
+        errorMessage = basicError.message;
+      }
+
+      errorMessage = getApiErrorMessage(error, errorMessage);
+      notifyError(errorMessage);
+    } finally {
+      setSalvando(false);
+    }
   }
 
   function cancelar() {
@@ -331,7 +413,7 @@ export default function Evento1015({
 
           <div>
             <label className="block text-sm font-semibold mb-1 text-gray-700">
-              Posto de Trabalho *
+              Posto de Trabalho <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2 items-center">
               <input
@@ -363,7 +445,7 @@ export default function Evento1015({
 
           <div>
             <label className="block text-sm font-semibold mb-1 text-gray-700">
-              Operador *
+              Operador <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2 items-center">
               <input
@@ -421,7 +503,7 @@ export default function Evento1015({
                 <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
                   <tr>
                     <th className="px-3 py-2 border">OS</th>
-                    <th className="px-3 py-2 border">Divisão</th>
+                    <th className="px-3 py-2 border">Divisao</th>
                     <th className="px-3 py-2 border text-right">Quantidade</th>
                   </tr>
                 </thead>
@@ -464,9 +546,10 @@ export default function Evento1015({
           onClick={salvar}
           className="text-white px-4 py-2 rounded flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: "#3C787A" }}
+          disabled={salvando}
         >
           <Save size={16} />
-          Salvar
+          {salvando ? "Salvando..." : "Salvar"}
         </button>
       </div>
     </div>
