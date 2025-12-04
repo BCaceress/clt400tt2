@@ -65,95 +65,100 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl w-full mx-auto bg-white rounded-2xl shadow-xl overflow-visible border border-slate-100">
-        <header className="bg-[#3C787A] text-white px-6 py-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-2">
-            <p className="text-lg font-semibold leading-tight">
-              COLET Sistemas - CLT400 Tratamento Térmico
-            </p>
-            <p className="text-sm font-semibold">Evento</p>
-
-            {/* INPUT + DROPDOWN CUSTOMIZADO */}
-            <div
-              className="relative flex items-center gap-2"
-              onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setListaAberta(false);
-                }
-              }}
-            >
-              <div className="relative flex-1">
-                <input
-                  className="bg-white text-slate-900 h-10 px-3 pr-10 rounded-lg min-w-[220px] sm:min-w-[320px] border border-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/70 w-full"
-                  placeholder="Digite o codigo ou escolha na lista"
-                  value={codigoEvento}
-                  onChange={(e) => setCodigoEvento(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && carregarEvento()}
-                />
-                <button
-                  type="button"
-                  aria-label="Mostrar opcoes de evento"
-                  className="absolute inset-y-0 right-2 flex items-center justify-center px-1 text-slate-500 hover:text-slate-700 cursor-pointer rounded-md"
-                  onClick={() => setListaAberta((prev) => !prev)}
-                  tabIndex={-1}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
+    <main className="min-h-screen bg-slate-50">
+      <div className="w-full h-full bg-white overflow-visible">
+        <header className="bg-[#3C787A] text-white px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4 xl:gap-6">
+            {/* Seção do título e formulário */}
+            <div className="flex-1 space-y-3">
+              <div>
+                <p className="text-lg sm:text-xl font-semibold leading-tight">
+                  COLET Sistemas - CLT400 Tratamento Térmico
+                </p>
+                <p className="text-sm font-semibold mt-1 opacity-90">Evento</p>
               </div>
 
+              {/* INPUT + DROPDOWN CUSTOMIZADO */}
+              <div
+                className="relative flex items-center gap-2"
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setListaAberta(false);
+                  }
+                }}
+              >
+                <div className="relative flex-1 max-w-md">
+                  <input
+                    className="bg-white text-slate-900 h-11 px-4 pr-12 rounded-lg w-full border border-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/70 text-sm sm:text-base"
+                    placeholder="Digite o código ou escolha na lista"
+                    value={codigoEvento}
+                    onChange={(e) => setCodigoEvento(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && carregarEvento()}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Mostrar opcoes de evento"
+                    className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"
+                    onClick={() => setListaAberta((prev) => !prev)}
+                    tabIndex={-1}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <button
+                  onClick={carregarEvento}
+                  aria-label="Carregar evento"
+                  className="h-11 w-11 bg-white text-[#3C787A] font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer transition-colors"
+                  type="button"
+                >
+                  <Search className="w-5 h-5" />
+                  <span className="sr-only">Carregar</span>
+                </button>
+
+                {listaAberta && (
+                  <div className="absolute left-0 top-12 z-50 mt-1 max-h-60 w-full max-w-md overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                    {OPCOES_EVENTO.map((opcao) => (
+                      <button
+                        key={opcao.valor}
+                        type="button"
+                        className="flex w-full items-center px-4 py-3 text-left text-sm text-slate-800 hover:bg-slate-100 transition-colors"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setCodigoEvento(opcao.label);
+                          setListaAberta(false);
+                        }}
+                      >
+                        {opcao.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Seção da empresa e botão consultar OS */}
+            <div className="flex flex-col sm:flex-row xl:flex-col xl:items-end gap-3 sm:gap-4 xl:gap-3">
+              <div className="text-left sm:text-right xl:text-right">
+                <p className="text-sm uppercase tracking-wide opacity-80">
+                  Empresa
+                </p>
+                <p className="text-lg sm:text-xl font-semibold leading-tight">
+                  Empresa Fulano
+                </p>
+              </div>
               <button
-                onClick={carregarEvento}
-                aria-label="Carregar evento"
-                className="h-10 w-10 bg-white text-[#3C787A] font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer"
+                onClick={() => setShowModal(true)}
+                className="px-4 py-2 bg-white/10 border border-white/30 rounded-lg font-semibold hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60 transition-colors whitespace-nowrap"
                 type="button"
               >
-                <Search className="w-5 h-5" />
-                <span className="sr-only">Carregar</span>
+                Consultar OS
               </button>
-
-              {listaAberta && (
-                <div className="absolute left-0 top-11 z-100 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                  {OPCOES_EVENTO.map((opcao) => (
-                    <button
-                      key={opcao.valor}
-                      type="button"
-                      className="flex w-full items-center px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-100"
-                      // evita que o blur do input feche antes do clique
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setCodigoEvento(opcao.label);
-                        setListaAberta(false);
-                      }}
-                    >
-                      {opcao.label}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-          </div>
-
-          <div className="flex flex-col sm:items-end gap-2">
-            <div className="text-right">
-              <p className="text-sm uppercase tracking-wide opacity-80">
-                Empresa
-              </p>
-              <p className="text-xl font-semibold leading-tight">
-                Empresa Fulano
-              </p>
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-4 py-2 bg-white/10 border border-white/30 rounded-lg font-semibold hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60"
-              type="button"
-            >
-              Consultar OS
-            </button>
           </div>
         </header>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {eventoValido && EventoComponent ? (
             <EventoComponent
               key={`${codigoEvento}-${osSelecionada?.numero ?? "sem-os"}`}
@@ -161,23 +166,23 @@ export default function Page() {
               osSelecionada={osSelecionada}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center py-2 text-center">
-              <div className="mb-6">
+            <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
+              <div className="mb-8">
                 <Image
                   src="/images/logoColet.png"
                   alt="Logo Colet"
-                  width={330}
-                  height={120}
-                  className="mx-auto"
+                  width={280}
+                  height={100}
+                  className="mx-auto w-auto h-auto max-w-[280px] sm:max-w-[330px]"
                   priority
                 />
               </div>
-              <h3 className="text-xl font-semibold text-slate-700 mb-2">
+              <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 mb-3">
                 Selecione um Evento
               </h3>
-              <p className="text-slate-500">
+              <p className="text-slate-500 max-w-md text-sm sm:text-base">
                 Digite o código do evento no campo acima ou escolha uma opção da
-                lista.
+                lista para começar.
               </p>
             </div>
           )}
