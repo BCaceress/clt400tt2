@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Save, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiService } from "../services/api";
+import {
+  notifyError,
+  notifySuccess,
+} from "../components/NotificationsProvider";
 import type { OrdemServico } from "../types/os";
 
 type TipoEvento = 10 | 15;
@@ -238,12 +242,14 @@ export default function Evento1015({
     }
 
     if (erros.length > 0) {
-      alert("Erro(s) de validação:\n\n" + erros.join("\n"));
+      notifyError("Erro(s) de validação:\n\n" + erros.join("\n"), {
+        style: { whiteSpace: "pre-line" },
+      });
       return;
     }
 
     console.log(`Enviando ${eventoTexto}:`, data);
-    alert(`${titulo} salvo!`);
+    notifySuccess(`${titulo} salvo!`);
   }
 
   function cancelar() {

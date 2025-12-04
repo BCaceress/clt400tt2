@@ -5,6 +5,7 @@ import type { ComponentType } from "react";
 import Image from "next/image";
 import { ChevronDown, Search } from "lucide-react";
 import ConsultaOSModal from "./components/ConsultaOSModal";
+import { notifyError, notifyInfo } from "./components/NotificationsProvider";
 import { EVENTO_COMPONENTS, type EventoProps } from "./eventos";
 import type { OrdemServico } from "./types/os";
 
@@ -47,7 +48,7 @@ export default function Page() {
 
   function carregarEvento() {
     if (!codigoEvento.trim()) {
-      alert("Informe o codigo do evento");
+      notifyInfo("Informe o código do evento");
       setEventoValido(false);
       return;
     }
@@ -58,7 +59,7 @@ export default function Page() {
     if (eventoExiste) {
       setEventoValido(true);
     } else {
-      alert("Evento nao encontrado");
+      notifyError("Evento não encontrado");
       setEventoValido(false);
     }
   }
