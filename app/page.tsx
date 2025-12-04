@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ComponentType } from "react";
+import Image from "next/image";
 import { ChevronDown, Search } from "lucide-react";
 import ConsultaOSModal from "./components/ConsultaOSModal";
 import { EVENTO_COMPONENTS, type EventoProps } from "./eventos";
@@ -36,7 +37,6 @@ export default function Page() {
   const [showModal, setShowModal] = useState(false);
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
 
-  // controla se o dropdown esta aberto
   const [listaAberta, setListaAberta] = useState(false);
 
   const codigoEventoNumero = Number(
@@ -153,12 +153,32 @@ export default function Page() {
         </header>
 
         <div className="p-6 space-y-6">
-          {eventoValido && EventoComponent && (
+          {eventoValido && EventoComponent ? (
             <EventoComponent
               key={`${codigoEvento}-${osSelecionada?.numero ?? "sem-os"}`}
               onConsultarOS={() => setShowModal(true)}
               osSelecionada={osSelecionada}
             />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-2 text-center">
+              <div className="mb-6">
+                <Image
+                  src="/images/logoColet.png"
+                  alt="Logo Colet"
+                  width={330}
+                  height={120}
+                  className="mx-auto"
+                  priority
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-700 mb-2">
+                Selecione um Evento
+              </h3>
+              <p className="text-slate-500">
+                Digite o código do evento no campo acima ou escolha uma opção da
+                lista.
+              </p>
+            </div>
           )}
         </div>
 
