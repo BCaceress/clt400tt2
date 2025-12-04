@@ -613,17 +613,17 @@ export default function Evento1015({
       </div>
 
       {/* Botões de Ação */}
-      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
+      <div className="flex flex-row justify-end gap-3 pt-4 border-t border-gray-200 md:justify-end">
         <button
           onClick={cancelar}
-          className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors font-medium"
+          className="flex-1 md:flex-none px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors font-medium"
           type="button"
         >
           Cancelar
         </button>
         <button
           onClick={salvar}
-          className="text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
+          className="flex-1 md:flex-none text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
           style={{ backgroundColor: "#3C787A" }}
           disabled={salvando}
         >

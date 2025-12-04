@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ComponentType } from "react";
 import Image from "next/image";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, FileSearch } from "lucide-react";
 import ConsultaOSModal from "./components/ConsultaOSModal";
 import { notifyError, notifyInfo } from "./components/NotificationsProvider";
 import { EVENTO_COMPONENTS, type EventoProps } from "./eventos";
@@ -68,7 +68,8 @@ export default function Page() {
     <main className="min-h-screen bg-slate-50">
       <div className="w-full h-full bg-white overflow-visible">
         <header className="bg-[#3C787A] text-white px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4 xl:gap-6">
+          {/* Layout para Desktop (xl) */}
+          <div className="hidden xl:flex xl:flex-row xl:items-start xl:justify-between gap-4 xl:gap-6">
             {/* Seção do título e formulário */}
             <div className="flex-1 space-y-3">
               <div>
@@ -138,8 +139,8 @@ export default function Page() {
             </div>
 
             {/* Seção da empresa e botão consultar OS */}
-            <div className="flex flex-col sm:flex-row xl:flex-col xl:items-end gap-3 sm:gap-4 xl:gap-3">
-              <div className="text-left sm:text-right xl:text-right">
+            <div className="flex flex-col xl:flex-col xl:items-end gap-3 xl:gap-3">
+              <div className="text-right xl:text-right">
                 <p className="text-sm uppercase tracking-wide opacity-80">
                   Empresa
                 </p>
@@ -154,6 +155,90 @@ export default function Page() {
               >
                 Consultar OS
               </button>
+            </div>
+          </div>
+
+          {/* Layout para Tablet e Mobile (sm até lg) */}
+          <div className="flex xl:hidden flex-col items-center text-center space-y-4">
+            {/* COLET Sistemas - CLT400 Tratamento Térmico centralizado */}
+            <div>
+              <p className="text-lg md:text-xl font-semibold tracking-wide">
+                COLET Sistemas - CLT400 Tratamento Térmico
+              </p>
+            </div>
+
+            {/* Empresa */}
+            <div>
+              <p className="text-lg md:text-xl font-semibold">Empresa Fulano</p>
+            </div>
+
+            {/* Input e botões */}
+            <div className="w-full">
+              <div
+                className="relative flex items-center gap-2"
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setListaAberta(false);
+                  }
+                }}
+              >
+                <div className="relative flex-1">
+                  <input
+                    className="bg-white text-slate-900 h-11 px-4 pr-12 rounded-lg w-full border border-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/70 text-sm md:text-base"
+                    placeholder="Digite o código ou escolha na lista"
+                    value={codigoEvento}
+                    onChange={(e) => setCodigoEvento(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && carregarEvento()}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Mostrar opcoes de evento"
+                    className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"
+                    onClick={() => setListaAberta((prev) => !prev)}
+                    tabIndex={-1}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <button
+                  onClick={carregarEvento}
+                  aria-label="Carregar evento"
+                  className="h-11 w-20 bg-white text-[#3C787A] font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer transition-colors"
+                  type="button"
+                >
+                  <Search className="w-5 h-5" />
+                  <span className="sr-only">Carregar</span>
+                </button>
+
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="h-11 w-20 bg-white/10 border border-white/30 rounded-lg font-semibold hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60 transition-colors flex items-center justify-center gap-1"
+                  type="button"
+                >
+                  <FileSearch className="w-5 h-5" />
+                  <span className="sr-only">Consultar OS</span>
+                </button>
+
+                {listaAberta && (
+                  <div className="absolute left-0 top-12 z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                    {OPCOES_EVENTO.map((opcao) => (
+                      <button
+                        key={opcao.valor}
+                        type="button"
+                        className="flex w-full items-center px-4 py-3 text-left text-sm text-slate-800 hover:bg-slate-100 transition-colors"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setCodigoEvento(opcao.label);
+                          setListaAberta(false);
+                        }}
+                      >
+                        {opcao.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
