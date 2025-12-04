@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import type { ComponentType } from "react";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import ConsultaOSModal from "./components/ConsultaOSModal";
 import { EVENTO_COMPONENTS, type EventoProps } from "./eventos";
 import type { OrdemServico } from "./types/os";
@@ -36,6 +36,9 @@ export default function Page() {
   const [showModal, setShowModal] = useState(false);
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
 
+  // controla se o dropdown esta aberto
+  const [listaAberta, setListaAberta] = useState(false);
+
   const codigoEventoNumero = Number(
     codigoEvento.match(/^\d+/)?.[0] ?? Number.NaN
   );
@@ -60,49 +63,74 @@ export default function Page() {
     }
   }
 
-  const abrirListaEvento = (
-    input: HTMLInputElement & { showPicker?: () => void }
-  ) => {
-    try {
-      input.showPicker?.();
-    } catch {
-      // showPicker exige gesto do usuário em alguns navegadores; ignorar falha.
-    }
-  };
-
   return (
     <main className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-6xl w-full mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+      <div className="max-w-7xl w-full mx-auto bg-white rounded-2xl shadow-xl overflow-visible border border-slate-100">
         <header className="bg-[#3C787A] text-white px-6 py-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2">
             <p className="text-lg font-semibold leading-tight">
-              CLT400 Tratamento Térmico
+              COLET Sistemas - CLT400 Tratamento Térmico
             </p>
             <p className="text-sm font-semibold">Evento</p>
-            <div className="flex items-center gap-2">
-              <input
-                className="bg-white text-slate-900 h-10 px-3 rounded-lg min-w-[150px] border border-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/70"
-                list="eventos-lista"
-                placeholder="Digite ou escolha"
-                value={codigoEvento}
-                onChange={(e) => setCodigoEvento(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && carregarEvento()}
-                onClick={(e) => abrirListaEvento(e.currentTarget)}
-              />
+
+            {/* INPUT + DROPDOWN CUSTOMIZADO */}
+            <div
+              className="relative flex items-center gap-2"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setListaAberta(false);
+                }
+              }}
+            >
+              <div className="relative flex-1">
+                <input
+                  className="bg-white text-slate-900 h-10 px-3 pr-10 rounded-lg min-w-[220px] sm:min-w-[320px] border border-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/70 w-full"
+                  placeholder="Digite o codigo ou escolha na lista"
+                  value={codigoEvento}
+                  onChange={(e) => setCodigoEvento(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && carregarEvento()}
+                />
+                <button
+                  type="button"
+                  aria-label="Mostrar opcoes de evento"
+                  className="absolute inset-y-0 right-2 flex items-center justify-center px-1 text-slate-500 hover:text-slate-700 cursor-pointer rounded-md"
+                  onClick={() => setListaAberta((prev) => !prev)}
+                  tabIndex={-1}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+
               <button
                 onClick={carregarEvento}
                 aria-label="Carregar evento"
-                className="h-10 w-10 bg-white text-[#3C787A] font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center"
+                className="h-10 w-10 bg-white text-[#3C787A] font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer"
+                type="button"
               >
                 <Search className="w-5 h-5" />
                 <span className="sr-only">Carregar</span>
               </button>
+
+              {listaAberta && (
+                <div className="absolute left-0 top-11 z-100 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                  {OPCOES_EVENTO.map((opcao) => (
+                    <button
+                      key={opcao.valor}
+                      type="button"
+                      className="flex w-full items-center px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-100"
+                      // evita que o blur do input feche antes do clique
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setCodigoEvento(opcao.label);
+                        setListaAberta(false);
+                      }}
+                    >
+                      {opcao.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <datalist id="eventos-lista">
-              {OPCOES_EVENTO.map((opcao) => (
-                <option key={opcao.valor} value={opcao.label} />
-              ))}
-            </datalist>
           </div>
 
           <div className="flex flex-col sm:items-end gap-2">
@@ -117,6 +145,7 @@ export default function Page() {
             <button
               onClick={() => setShowModal(true)}
               className="px-4 py-2 bg-white/10 border border-white/30 rounded-lg font-semibold hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60"
+              type="button"
             >
               Consultar OS
             </button>
@@ -124,7 +153,6 @@ export default function Page() {
         </header>
 
         <div className="p-6 space-y-6">
-          {/* Carrega componente dinamico */}
           {eventoValido && EventoComponent && (
             <EventoComponent
               key={`${codigoEvento}-${osSelecionada?.numero ?? "sem-os"}`}
@@ -134,7 +162,6 @@ export default function Page() {
           )}
         </div>
 
-        {/* Modal */}
         {showModal && (
           <ConsultaOSModal
             onClose={() => setShowModal(false)}
