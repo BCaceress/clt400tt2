@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { Save, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { apiService } from "../services/api";
 import {
-  notifyError,
-  notifySuccess,
-} from "../components/NotificationsProvider";
+  useBuscaOS,
+  useBuscaOperador,
+  useBuscaPosto,
+  useBuscaCarga,
+  useSalvarEvento,
+  useNavigation,
+} from "../components/hooks";
+import { notifyError } from "../components/NotificationsProvider";
 import type { OrdemServico } from "../types/os";
 
 type TipoEvento = 10 | 15;
@@ -31,35 +34,10 @@ type LinhaResultado = {
   quantidade: number;
 };
 
-type Operador = {
-  codigo_pessoa: string;
-  nome: string;
-  situacao: string;
-};
-
-type Posto = {
-  codigo_posto: string;
-  descricao: string;
-  situacao: string;
-  situacao_descricao: string;
-};
-
-type OrdemApiResponse = {
-  numero_os: number;
-  quantidade_os: number;
-  divisoes: LinhaResultado[];
-};
-
-type CargaApiResponse = {
-  numero_carga: number;
-  oss: LinhaResultado[];
-};
-
 export default function Evento1015({
   tipoEvento,
   osSelecionada,
 }: Evento1015Props) {
-  const router = useRouter();
   const [data, setData] = useState<EventoForm>({
     num_carga: "",
     num_os: osSelecionada?.numero ?? "",
@@ -70,197 +48,80 @@ export default function Evento1015({
   const [referencia, setReferencia] = useState<string | null>(null);
   const [erroBusca, setErroBusca] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
-  const [nomeOperador, setNomeOperador] = useState<string>("");
-  const [erroOperador, setErroOperador] = useState<string | null>(null);
-  const [buscandoOperador, setBuscandoOperador] = useState(false);
-  const [descricaoPosto, setDescricaoPosto] = useState<string>("");
-  const [erroPosto, setErroPosto] = useState<string | null>(null);
-  const [buscandoPosto, setBuscandoPosto] = useState(false);
-  const [salvando, setSalvando] = useState(false);
+
+  // Hooks customizados
+  const { consultarOSCompleta } = useBuscaOS();
+  const { nomeOperador, erroOperador, buscandoOperador, consultarOperador } =
+    useBuscaOperador();
+  const { descricaoPosto, erroPosto, buscandoPosto, consultarPosto } =
+    useBuscaPosto();
+  const { consultarCarga } = useBuscaCarga();
+  const { salvando, salvarEvento } = useSalvarEvento();
+  const { cancelarERedirecionarParaHome } = useNavigation();
 
   const titulo = tipoEvento === 10 ? "Início de Carga" : "Término de Carga";
 
-  const getApiErrorMessage = (error: unknown, fallback: string) => {
-    if (error && typeof error === "object") {
-      const status = (error as { status?: number }).status;
-      const message = (error as { message?: string }).message;
-      if (status && [400, 402, 404].includes(status) && message) {
-        const cleaned = message.replace(/^HTTP\s*\d+:\s*/i, "").trim();
-        return cleaned || fallback;
-      }
-      if (message) {
-        return message;
-      }
-    }
-    return fallback;
-  };
-
-  function formatarDataHoraAtual() {
-    const agora = new Date();
-    const pad = (valor: number) => valor.toString().padStart(2, "0");
-    const dia = pad(agora.getDate());
-    const mes = pad(agora.getMonth() + 1);
-    const ano = agora.getFullYear();
-    const hora = pad(agora.getHours());
-    const minuto = pad(agora.getMinutes());
-    const segundo = pad(agora.getSeconds());
-    return `${dia}/${mes}/${ano} ${hora}:${minuto}:${segundo}`;
-  }
-
-  function limparResultado() {
+  const limparResultado = () => {
     setLinhas([]);
     setReferencia(null);
-  }
-
-  async function consultarCarga() {
-    const numero = data.num_carga.trim();
-    if (!numero) {
-      setErroBusca("Informe o numero da carga para pesquisar.");
-      limparResultado();
-      return;
-    }
-
     setErroBusca(null);
+  };
+
+  const handleConsultarCarga = async () => {
     setBuscando(true);
+    setErroBusca(null);
+
     try {
-      const resposta = await apiService.get<CargaApiResponse>(
-        `/cargas?numero_carga=${encodeURIComponent(numero)}`
-      );
-      const dados = resposta.oss ?? [];
-      setLinhas(dados);
-      setReferencia(`Carga ${resposta.numero_carga}`);
-      if (dados.length === 0) {
+      const resultado = await consultarCarga(data.num_carga);
+      setLinhas(resultado.linhas);
+      setReferencia(resultado.referencia);
+
+      if (resultado.linhas.length === 0 && resultado.referencia) {
         setErroBusca("Nenhuma OS encontrada para a carga informada.");
       }
-    } catch (error) {
-      console.error(error);
-      const mensagem = getApiErrorMessage(
-        error,
-        "Nao foi possivel consultar a carga."
-      );
-      setErroBusca(mensagem);
-      notifyError(mensagem);
+    } catch {
       limparResultado();
     } finally {
       setBuscando(false);
     }
-  }
+  };
 
-  async function consultarOS() {
-    const numero = data.num_os.trim();
-    if (!numero) {
-      setErroBusca("Informe o numero da OS para pesquisar.");
-      limparResultado();
-      return;
-    }
-
-    setErroBusca(null);
+  const handleConsultarOS = async () => {
     setBuscando(true);
+    setErroBusca(null);
+
     try {
-      const resposta = await apiService.get<OrdemApiResponse>(
-        `/ordens?numero_os=${encodeURIComponent(numero)}`
-      );
-      const dados = resposta.divisoes ?? [];
-      const linhasComNumeroOS = dados.map((linha) => ({
-        ...linha,
-        numero_os: resposta.numero_os,
-      }));
-      setLinhas(linhasComNumeroOS);
-      setReferencia(`OS ${resposta.numero_os}`);
-      if (dados.length === 0) {
+      const resultado = await consultarOSCompleta(data.num_os);
+      setLinhas(resultado.linhas);
+      setReferencia(resultado.referencia);
+
+      if (resultado.linhas.length === 0 && resultado.referencia) {
         setErroBusca("Nenhuma divisão encontrada para a OS informada.");
       }
-    } catch (error) {
-      console.error(error);
-      const mensagem = getApiErrorMessage(
-        error,
-        "Não foi possível consultar a OS."
-      );
-      setErroBusca(mensagem);
-      notifyError(mensagem);
+    } catch {
       limparResultado();
     } finally {
       setBuscando(false);
     }
-  }
+  };
 
-  async function consultarOperador() {
-    const codigo = data.operador.trim();
-    if (!codigo) {
-      setErroOperador("Informe o código do operador.");
-      setNomeOperador("");
-      return;
-    }
-    setErroOperador(null);
-    setBuscandoOperador(true);
-    try {
-      const resposta = await apiService.get<Operador[]>(
-        `/operadores?codigo_pessoa=${encodeURIComponent(codigo)}`
-      );
-      const operadorEncontrado = resposta?.[0];
-      if (operadorEncontrado) {
-        setNomeOperador(operadorEncontrado.nome);
-      } else {
-        setNomeOperador("");
-        setErroOperador("Operador não encontrado.");
-      }
-    } catch (error) {
-      console.error(error);
-      setNomeOperador("");
-      const mensagem = getApiErrorMessage(
-        error,
-        "Não foi possível consultar o operador."
-      );
-      setErroOperador(mensagem);
-      notifyError(mensagem);
-    } finally {
-      setBuscandoOperador(false);
-    }
-  }
+  const handleConsultarOperador = async () => {
+    await consultarOperador(data.operador);
+  };
 
-  async function consultarPosto() {
-    const codigo = data.posto_trab.trim();
-    if (!codigo) {
-      setErroPosto("Informe o código do posto.");
-      setDescricaoPosto("");
-      return;
-    }
-    setErroPosto(null);
-    setBuscandoPosto(true);
-    try {
-      const resposta = await apiService.get<Posto[]>(
-        `/postos?codigo_posto=${encodeURIComponent(codigo)}`
-      );
-      const postoEncontrado = resposta?.[0];
-      if (postoEncontrado) {
-        setDescricaoPosto(postoEncontrado.descricao);
-      } else {
-        setDescricaoPosto("");
-        setErroPosto("Posto não encontrado.");
-      }
-    } catch (error) {
-      console.error(error);
-      setDescricaoPosto("");
-      const mensagem = getApiErrorMessage(
-        error,
-        "Não foi possível consultar o posto."
-      );
-      setErroPosto(mensagem);
-      notifyError(mensagem);
-    } finally {
-      setBuscandoPosto(false);
-    }
-  }
+  const handleConsultarPosto = async () => {
+    await consultarPosto(data.posto_trab);
+  };
 
-  async function salvar() {
+  const handleSalvar = async () => {
     const erros: string[] = [];
 
     if (tipoEvento === 10 && !data.num_carga.trim()) {
-      erros.push("O número da carga e obrigatorio para o evento 10.");
+      erros.push("O número da carga é obrigatório para o evento 10.");
     }
 
     if (!data.num_carga.trim() && !data.num_os.trim()) {
-      erros.push("E necessario informar o numero da carga ou da OS.");
+      erros.push("É necessário informar o número da carga ou da OS.");
     }
 
     if (data.num_carga.trim() && linhas.length === 0) {
@@ -274,7 +135,7 @@ export default function Evento1015({
     }
 
     if (!data.posto_trab.trim()) {
-      erros.push("O campo Posto de Trabalho e obrigatorio.");
+      erros.push("O campo Posto de Trabalho é obrigatório.");
     } else if (!descricaoPosto || erroPosto) {
       erros.push(
         "É necessário pesquisar e encontrar um posto de trabalho válido."
@@ -282,9 +143,9 @@ export default function Evento1015({
     }
 
     if (!data.operador.trim()) {
-      erros.push("O campo Operador e obrigatório.");
+      erros.push("O campo Operador é obrigatório.");
     } else if (!nomeOperador || erroOperador) {
-      erros.push("E necessario pesquisar e encontrar um operador valido.");
+      erros.push("É necessário pesquisar e encontrar um operador válido.");
     }
 
     if (erros.length > 0) {
@@ -294,54 +155,18 @@ export default function Evento1015({
       return;
     }
 
-    setSalvando(true);
-    try {
-      const payload = {
-        numero_carga: parseInt(data.num_carga.trim()) || 0,
-        numero_os: data.num_os.trim(),
-        data_hora_coletor: formatarDataHoraAtual(),
-        codigo_pessoa: data.operador.trim(),
-        codigo_forno: data.posto_trab.trim(),
-        tipo_lcto: tipoEvento.toString(),
-      };
+    const payload = {
+      numero_carga: parseInt(data.num_carga.trim()) || 0,
+      numero_os: data.num_os.trim(),
+      codigo_pessoa: data.operador.trim(),
+      codigo_forno: data.posto_trab.trim(),
+      tipo_lcto: tipoEvento.toString(),
+    };
 
-      const response = (await apiService.post("/lancamentos", payload)) as {
-        sucesso?: boolean;
-        mensagem?: string;
-      };
+    await salvarEvento(payload, titulo);
+  };
 
-      if (response?.sucesso || response?.mensagem) {
-        notifySuccess(response.mensagem || `${titulo} salvo!`);
-      } else {
-        notifySuccess(`${titulo} salvo!`);
-      }
-    } catch (error: unknown) {
-      console.error(error);
-
-      let errorMessage = "Não foi possível salvar o evento.";
-
-      if (error && typeof error === "object" && "response" in error) {
-        const apiError = error as {
-          response: { data: { erro?: string; mensagem?: string } };
-        };
-        if (apiError.response?.data?.erro) {
-          errorMessage = apiError.response.data.erro;
-        } else if (apiError.response?.data?.mensagem) {
-          errorMessage = apiError.response.data.mensagem;
-        }
-      } else if (error && typeof error === "object" && "message" in error) {
-        const basicError = error as { message: string };
-        errorMessage = basicError.message;
-      }
-
-      errorMessage = getApiErrorMessage(error, errorMessage);
-      notifyError(errorMessage);
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  function cancelar() {
+  const handleCancelar = () => {
     setData({
       num_carga: "",
       num_os: "",
@@ -351,19 +176,11 @@ export default function Evento1015({
     setLinhas([]);
     setReferencia(null);
     setErroBusca(null);
-    setNomeOperador("");
-    setErroOperador(null);
-    setDescricaoPosto("");
-    setErroPosto(null);
-    if (typeof window !== "undefined") {
-      window.location.href = "/";
-    } else {
-      router.push("/");
-    }
-  }
+    cancelarERedirecionarParaHome();
+  };
 
   return (
-    <div className="border-t pt-6 space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <h2 className="font-bold text-xl text-gray-800">{titulo}</h2>
         <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg border">
@@ -391,13 +208,15 @@ export default function Evento1015({
                     onChange={(e) =>
                       setData({ ...data, num_carga: e.target.value })
                     }
-                    onKeyDown={(e) => e.key === "Enter" && consultarCarga()}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleConsultarCarga()
+                    }
                     disabled={data.num_os.trim().length > 0}
                     placeholder="Digite o número da carga"
                   />
                   <button
                     type="button"
-                    onClick={consultarCarga}
+                    onClick={handleConsultarCarga}
                     className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
                     disabled={data.num_os.trim().length > 0}
                   >
@@ -417,13 +236,13 @@ export default function Evento1015({
                     onChange={(e) =>
                       setData({ ...data, num_os: e.target.value })
                     }
-                    onKeyDown={(e) => e.key === "Enter" && consultarOS()}
+                    onKeyDown={(e) => e.key === "Enter" && handleConsultarOS()}
                     disabled={data.num_carga.trim().length > 0}
                     placeholder="Digite o número da OS"
                   />
                   <button
                     type="button"
-                    onClick={consultarOS}
+                    onClick={handleConsultarOS}
                     className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
                     disabled={data.num_carga.trim().length > 0}
                   >
@@ -452,12 +271,14 @@ export default function Evento1015({
                     onChange={(e) =>
                       setData({ ...data, posto_trab: e.target.value })
                     }
-                    onKeyDown={(e) => e.key === "Enter" && consultarPosto()}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleConsultarPosto()
+                    }
                     placeholder="Código do posto"
                   />
                   <button
                     type="button"
-                    onClick={consultarPosto}
+                    onClick={handleConsultarPosto}
                     className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] cursor-pointer transition-colors shadow-sm"
                   >
                     <Search size={18} />
@@ -490,12 +311,14 @@ export default function Evento1015({
                     onChange={(e) =>
                       setData({ ...data, operador: e.target.value })
                     }
-                    onKeyDown={(e) => e.key === "Enter" && consultarOperador()}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleConsultarOperador()
+                    }
                     placeholder="Código do operador"
                   />
                   <button
                     type="button"
-                    onClick={consultarOperador}
+                    onClick={handleConsultarOperador}
                     className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] cursor-pointer transition-colors shadow-sm"
                   >
                     <Search size={18} />
@@ -614,14 +437,14 @@ export default function Evento1015({
 
       <div className="flex flex-row justify-end gap-3 pt-4 border-t border-gray-200 md:justify-end">
         <button
-          onClick={cancelar}
+          onClick={handleCancelar}
           className="flex-1 md:flex-none px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors font-medium"
           type="button"
         >
           Cancelar
         </button>
         <button
-          onClick={salvar}
+          onClick={handleSalvar}
           className="flex-1 md:flex-none text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
           style={{ backgroundColor: "#3C787A" }}
           disabled={salvando}

@@ -30,7 +30,7 @@ export default function ConsultaOSModal({
           <h2 className="text-lg font-bold text-white">Consultar OS</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-white/10 rounded-full transition-colors"
+            className="p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
             aria-label="Fechar modal"
           >
             <X className="w-5 h-5 text-white" />

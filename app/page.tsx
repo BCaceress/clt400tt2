@@ -65,32 +65,34 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="w-full h-full bg-white overflow-visible">
-        <header className="bg-[#3C787A] text-white px-4 sm:px-6 py-4 sm:py-6">
+    <main className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="w-full min-h-screen flex flex-col bg-white/80 backdrop-blur-sm overflow-visible shadow-sm">
+        <header className="bg-linear-to-r from-[#2D5A5C] to-[#3C787A] text-white px-4 sm:px-6 py-6 sm:py-8 shadow-lg border-b border-white/10">
           {/* Layout para Desktop (xl) */}
-          <div className="hidden xl:flex xl:flex-row xl:items-start xl:justify-between gap-4 xl:gap-6">
+          <div className="hidden xl:flex xl:flex-row xl:items-start xl:justify-between gap-6 xl:gap-8">
             {/* Seção do título e formulário */}
-            <div className="flex-1 space-y-3">
-              <div>
-                <p className="text-lg sm:text-xl font-semibold leading-tight">
+            <div className="flex-1 space-y-4">
+              <div className="space-y-2">
+                <p className="text-xl sm:text-2xl font-bold leading-tight tracking-tight">
                   COLET Sistemas - CLT400 Tratamento Térmico
                 </p>
-                <p className="text-sm font-semibold mt-1 opacity-90">Evento</p>
+                <p className="text-sm font-medium opacity-80 uppercase tracking-wider">
+                  Evento
+                </p>
               </div>
 
               {/* INPUT + DROPDOWN CUSTOMIZADO */}
               <div
-                className="relative flex items-center gap-2"
+                className="relative flex items-center gap-3"
                 onBlur={(e) => {
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                     setListaAberta(false);
                   }
                 }}
               >
-                <div className="relative flex-1 max-w-md">
+                <div className="relative flex-1 max-w-lg">
                   <input
-                    className="bg-white text-slate-900 h-11 px-4 pr-12 rounded-lg w-full border border-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/70 text-sm sm:text-base"
+                    className="bg-white/95 backdrop-blur text-slate-900 h-12 px-4 pr-12 rounded-xl w-full border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/80 focus:border-white/60 text-sm sm:text-base placeholder-slate-500 transition-all duration-200"
                     placeholder="Digite o código ou escolha na lista"
                     value={codigoEvento}
                     onChange={(e) => setCodigoEvento(e.target.value)}
@@ -99,18 +101,22 @@ export default function Page() {
                   <button
                     type="button"
                     aria-label="Mostrar opcoes de evento"
-                    className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"
+                    className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer transition-colors duration-200"
                     onClick={() => setListaAberta((prev) => !prev)}
                     tabIndex={-1}
                   >
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-200 ${
+                        listaAberta ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
                 </div>
 
                 <button
                   onClick={carregarEvento}
                   aria-label="Carregar evento"
-                  className="h-11 w-11 bg-white text-[#3C787A] font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer transition-colors"
+                  className="h-12 w-12 bg-white/20 backdrop-blur text-white font-semibold rounded-xl shadow-lg hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer transition-all duration-200 border border-white/20"
                   type="button"
                 >
                   <Search className="w-5 h-5" />
@@ -118,64 +124,73 @@ export default function Page() {
                 </button>
 
                 {listaAberta && (
-                  <div className="absolute left-0 top-12 z-50 mt-1 max-h-60 w-full max-w-md overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-                    {OPCOES_EVENTO.map((opcao) => (
-                      <button
-                        key={opcao.valor}
-                        type="button"
-                        className="flex w-full items-center px-4 py-3 text-left text-sm text-slate-800 hover:bg-slate-100 transition-colors"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setCodigoEvento(opcao.label);
-                          setListaAberta(false);
-                        }}
-                      >
-                        {opcao.label}
-                      </button>
-                    ))}
+                  <div className="absolute left-0 top-14 z-50 mt-1 max-h-64 w-full max-w-lg overflow-auto rounded-xl border border-slate-200/50 bg-white/95 backdrop-blur-md shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-2">
+                      {OPCOES_EVENTO.map((opcao) => (
+                        <button
+                          key={opcao.valor}
+                          type="button"
+                          className="flex w-full items-center px-4 py-3 text-left text-base text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-150 hover:shadow-sm"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setCodigoEvento(opcao.label);
+                            setListaAberta(false);
+                          }}
+                        >
+                          <span className="font-bold text-[#3C787A] mr-3">
+                            {opcao.valor}
+                          </span>
+                          <span>{opcao.label.split(" - ")[1]}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Seção da empresa e botão consultar OS */}
-            <div className="flex flex-col xl:flex-col xl:items-end gap-3 xl:gap-3">
-              <div className="text-right xl:text-right">
-                <p className="text-sm uppercase tracking-wide opacity-80">
+            <div className="flex flex-col xl:flex-col xl:items-end gap-4 xl:gap-4">
+              <div className="text-right xl:text-right space-y-1">
+                <p className="text-xs uppercase tracking-wider opacity-70 font-medium">
                   Empresa
                 </p>
-                <p className="text-lg sm:text-xl font-semibold leading-tight">
+                <p className="text-xl sm:text-2xl font-bold leading-tight">
                   Empresa Fulano
                 </p>
               </div>
               <button
                 onClick={() => setShowModal(true)}
-                className="px-4 py-2 bg-white/10 border border-white/30 rounded-lg font-semibold hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60 transition-colors whitespace-nowrap"
+                className="px-6 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 whitespace-nowrap shadow-lg cursor-pointer"
                 type="button"
               >
+                <FileSearch className="w-4 h-4 inline mr-2" />
                 Consultar OS
               </button>
             </div>
           </div>
 
           {/* Layout para Tablet e Mobile (sm até lg) */}
-          <div className="flex xl:hidden flex-col items-center text-center space-y-4">
+          <div className="flex xl:hidden flex-col items-center text-center space-y-6">
             {/* COLET Sistemas - CLT400 Tratamento Térmico centralizado */}
-            <div>
-              <p className="text-lg md:text-xl font-semibold tracking-wide">
+            <div className="space-y-2">
+              <p className="text-xl md:text-2xl font-bold tracking-tight">
                 COLET Sistemas - CLT400 Tratamento Térmico
+              </p>
+              <p className="text-xs uppercase tracking-wider opacity-70 font-medium">
+                Sistema de Eventos
               </p>
             </div>
 
             {/* Empresa */}
-            <div>
-              <p className="text-lg md:text-xl font-semibold">Empresa Fulano</p>
+            <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-2 border border-white/20">
+              <p className="text-lg md:text-xl font-bold">Empresa Fulano</p>
             </div>
 
             {/* Input e botões */}
-            <div className="w-full">
+            <div className="w-full max-w-2xl">
               <div
-                className="relative flex items-center gap-2"
+                className="relative flex items-center gap-3"
                 onBlur={(e) => {
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                     setListaAberta(false);
@@ -184,7 +199,7 @@ export default function Page() {
               >
                 <div className="relative flex-1">
                   <input
-                    className="bg-white text-slate-900 h-11 px-4 pr-12 rounded-lg w-full border border-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/70 text-sm md:text-base"
+                    className="bg-white/95 backdrop-blur text-slate-900 h-12 px-4 pr-12 rounded-xl w-full border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/80 focus:border-white/60 text-sm md:text-base placeholder-slate-500 transition-all duration-200"
                     placeholder="Digite o código ou escolha na lista"
                     value={codigoEvento}
                     onChange={(e) => setCodigoEvento(e.target.value)}
@@ -193,18 +208,22 @@ export default function Page() {
                   <button
                     type="button"
                     aria-label="Mostrar opcoes de evento"
-                    className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"
+                    className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer transition-colors duration-200"
                     onClick={() => setListaAberta((prev) => !prev)}
                     tabIndex={-1}
                   >
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-200 ${
+                        listaAberta ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
                 </div>
 
                 <button
                   onClick={carregarEvento}
                   aria-label="Carregar evento"
-                  className="h-11 w-20 bg-white text-[#3C787A] font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer transition-colors"
+                  className="h-12 w-20 bg-white/20 backdrop-blur text-white font-semibold rounded-xl shadow-lg hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer transition-all duration-200 border border-white/20"
                   type="button"
                 >
                   <Search className="w-5 h-5" />
@@ -213,7 +232,7 @@ export default function Page() {
 
                 <button
                   onClick={() => setShowModal(true)}
-                  className="h-11 w-20 bg-white/10 border border-white/30 rounded-lg font-semibold hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60 transition-colors flex items-center justify-center gap-1"
+                  className="h-12 w-20 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 flex items-center justify-center shadow-lg"
                   type="button"
                 >
                   <FileSearch className="w-5 h-5" />
@@ -221,21 +240,26 @@ export default function Page() {
                 </button>
 
                 {listaAberta && (
-                  <div className="absolute left-0 top-12 z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-                    {OPCOES_EVENTO.map((opcao) => (
-                      <button
-                        key={opcao.valor}
-                        type="button"
-                        className="flex w-full items-center px-4 py-3 text-left text-sm text-slate-800 hover:bg-slate-100 transition-colors"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setCodigoEvento(opcao.label);
-                          setListaAberta(false);
-                        }}
-                      >
-                        {opcao.label}
-                      </button>
-                    ))}
+                  <div className="absolute left-0 top-14 z-50 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200/50 bg-white/95 backdrop-blur-md shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-2">
+                      {OPCOES_EVENTO.map((opcao) => (
+                        <button
+                          key={opcao.valor}
+                          type="button"
+                          className="flex w-full items-center px-4 py-3 text-left text-base text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-150 hover:shadow-sm"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setCodigoEvento(opcao.label);
+                            setListaAberta(false);
+                          }}
+                        >
+                          <span className="font-bold text-[#3C787A] mr-3">
+                            {opcao.valor}
+                          </span>
+                          <span>{opcao.label.split(" - ")[1]}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -243,35 +267,55 @@ export default function Page() {
           </div>
         </header>
 
-        <div className="p-4 sm:p-6 space-y-6">
+        <div className="flex-1 bg-white p-6 sm:p-6 space-y-6">
           {eventoValido && EventoComponent ? (
-            <EventoComponent
-              key={`${codigoEvento}-${osSelecionada?.numero ?? "sem-os"}`}
-              onConsultarOS={() => setShowModal(true)}
-              osSelecionada={osSelecionada}
-            />
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200/50 p-6 sm:p-6">
+              <EventoComponent
+                key={`${codigoEvento}-${osSelecionada?.numero ?? "sem-os"}`}
+                onConsultarOS={() => setShowModal(true)}
+                osSelecionada={osSelecionada}
+              />
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
-              <div className="mb-8">
+            <div className="flex flex-col items-center justify-center min-h-full py-12 sm:py-16 text-center">
+              <div className="mb-15 p-8 bg-white/60 backdrop-blur rounded-3xl shadow-lg border border-slate-200/50">
                 <Image
                   src="/images/logoColet.png"
                   alt="Logo Colet"
                   width={280}
                   height={100}
-                  className="mx-auto w-auto h-auto max-w-[280px] sm:max-w-[330px]"
+                  className="mx-auto w-auto h-auto max-w-[280px] sm:max-w-[330px] drop-shadow-sm"
                   priority
                 />
               </div>
-              <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 mb-3">
-                Selecione um Evento
-              </h3>
-              <p className="text-slate-500 max-w-md text-sm sm:text-base">
-                Digite o código do evento no campo acima ou escolha uma opção da
-                lista para começar.
-              </p>
+              <div className="space-y-4 max-w-lg">
+                <h3 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-4">
+                  Selecione um Evento
+                </h3>
+                <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
+                  Digite o código do evento no campo acima ou escolha uma opção
+                  da lista para começar.
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-slate-500 mt-6">
+                  <div className="w-2 h-2 bg-[#3C787A] rounded-full animate-pulse"></div>
+                  <span>Aguardando seleção de evento</span>
+                </div>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Rodapé - visível apenas em desktop */}
+        <footer className="hidden xl:block bg-linear-to-r from-[#2D5A5C] to-[#3C787A] text-white py-3 px-6 border-t border-white/10">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <span className="opacity-80">© 2026 COLET Sistemas</span>
+              <span className="opacity-60">|</span>
+              <span className="opacity-80">CLT400 Tratamento Térmico</span>
+            </div>
+            <div className="opacity-70">Sistema de Gestão Industrial</div>
+          </div>
+        </footer>
 
         {showModal && (
           <ConsultaOSModal
