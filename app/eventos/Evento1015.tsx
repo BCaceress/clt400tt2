@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
-import { Save, Search, AlertCircle } from "lucide-react";
+import { Save, Search, AlertCircle, Trash2 } from "lucide-react";
 import {
   useBuscaOS,
   useBuscaOperador,
@@ -10,6 +10,7 @@ import {
   useNavigation,
 } from "../components/hooks";
 import { notifyError } from "../components/NotificationsProvider";
+import SelectDropdown from "../components/SelectDropdown";
 import type { OrdemServico } from "../types/os";
 
 type TipoEvento = 10 | 15;
@@ -75,11 +76,19 @@ export default function Evento1015({
   const [priorityCargas, setPriorityCargas] = useState<string>("");
   const [pendingResult, setPendingResult] = useState<ApiResult | null>(null);
 
+  // Estados para edição da tabela
+  const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+  const [tempQuantidade, setTempQuantidade] = useState<string>("");
+
+  // Estados para controlar se as buscas foram realizadas
+  const [cargaEncontrada, setCargaEncontrada] = useState(false);
+  const [osEncontrada, setOsEncontrada] = useState(false);
+
   // Hooks customizados
   const { consultarOSCompleta } = useBuscaOS();
-  const { nomeOperador, erroOperador, buscandoOperador, consultarOperador } =
+  const { nomeOperador, erroOperador, buscandoOperador, consultarOperador, limparOperador } =
     useBuscaOperador();
-  const { consultarCarga } = useBuscaCarga();
+  const { consultarCarga, buscandoCarga } = useBuscaCarga();
   const { salvando, salvarEvento } = useSalvarEvento();
   const { cancelarERedirecionarParaHome } = useNavigation();
 
@@ -92,6 +101,8 @@ export default function Evento1015({
     setPostoApi(null);
     setDescricaoPostoApi(null);
     setPostosPossiveis([]);
+    setCargaEncontrada(false);
+    setOsEncontrada(false);
   };
 
   const handleConsultarCarga = async () => {
@@ -100,6 +111,7 @@ export default function Evento1015({
 
     // Limpar outros campos antes da nova pesquisa
     setData((prev) => ({ ...prev, num_os: "", operador: "", posto_trab: "" }));
+    limparOperador();
     limparResultado();
 
     try {
@@ -116,6 +128,7 @@ export default function Evento1015({
 
       // Processar resultado normalmente se não há cargas prioritárias
       processarResultadoBusca(resultado);
+      setCargaEncontrada(resultado.linhas.length > 0);
 
       if (resultado.linhas.length === 0 && resultado.referencia) {
         setErroBusca("Nenhuma OS encontrada para a carga informada.");
@@ -138,10 +151,11 @@ export default function Evento1015({
       operador: "",
       posto_trab: "",
     }));
+    limparOperador();
     limparResultado();
 
     try {
-      const resultado = await consultarOSCompleta(data.num_os);
+      const resultado = await consultarOSCompleta(data.num_os, tipoEvento);
       setLinhas(resultado.linhas);
       setReferencia(resultado.referencia);
 
@@ -172,6 +186,8 @@ export default function Evento1015({
         setPostosPossiveis([]);
       }
 
+      setOsEncontrada(resultado.linhas.length > 0);
+
       if (resultado.linhas.length === 0 && resultado.referencia) {
         setErroBusca("Nenhuma divisão encontrada para a OS informada.");
       }
@@ -186,9 +202,28 @@ export default function Evento1015({
     await consultarOperador(data.operador);
   };
 
+  const handleLimparOperador = () => {
+    limparOperador();
+    setData({ ...data, operador: "" });
+  };
+
+  const handleLimparTudo = () => {
+    setData({
+      num_carga: "",
+      num_os: "",
+      operador: "",
+      posto_trab: "",
+    });
+    limparOperador();
+    limparResultado();
+    setCargaEncontrada(false);
+    setOsEncontrada(false);
+  };
+
   const processarResultadoBusca = (resultado: ApiResult) => {
     setLinhas(resultado.linhas);
     setReferencia(resultado.referencia);
+    setCargaEncontrada(resultado.linhas.length > 0);
 
     // Processar informações de posto vindas da API
     if (resultado.posto && resultado.descricaoPosto) {
@@ -213,6 +248,7 @@ export default function Evento1015({
   const processarResultadoOS = (resultado: ApiResult) => {
     setLinhas(resultado.linhas);
     setReferencia(resultado.referencia);
+    setOsEncontrada(resultado.linhas.length > 0);
 
     // Processar número da carga se retornado pela API
     if (resultado.numeroCarga) {
@@ -260,13 +296,7 @@ export default function Evento1015({
 
   const handlePriorityCancel = () => {
     // Limpar campos e posicionar no campo de carga
-    setData({
-      num_carga: "",
-      num_os: "",
-      operador: "",
-      posto_trab: "",
-    });
-    limparResultado();
+    handleLimparTudo();
     setShowPriorityModal(false);
     setPendingResult(null);
     setPriorityCargas("");
@@ -349,19 +379,34 @@ export default function Evento1015({
     await salvarEvento(payload, titulo);
   };
 
+  const handleEditarQuantidade = (index: number) => {
+    setEditingRowIndex(index);
+    setTempQuantidade(linhas[index].quantidade.toString());
+  };
+
+  const handleSalvarEdicao = (index: number) => {
+    const novaQuantidade = parseInt(tempQuantidade);
+    if (!isNaN(novaQuantidade) && novaQuantidade > 0) {
+      const novasLinhas = [...linhas];
+      novasLinhas[index] = {
+        ...novasLinhas[index],
+        quantidade: novaQuantidade,
+      };
+      setLinhas(novasLinhas);
+    }
+    setEditingRowIndex(null);
+    setTempQuantidade("");
+  };
+
+  const handleCancelarEdicao = () => {
+    setEditingRowIndex(null);
+    setTempQuantidade("");
+  };
+
   const handleCancelar = () => {
-    setData({
-      num_carga: "",
-      num_os: "",
-      operador: "",
-      posto_trab: "",
-    });
-    setLinhas([]);
-    setReferencia(null);
-    setErroBusca(null);
-    setPostoApi(null);
-    setDescricaoPostoApi(null);
-    setPostosPossiveis([]);
+    handleLimparTudo();
+    setEditingRowIndex(null);
+    setTempQuantidade("");
     cancelarERedirecionarParaHome();
   };
 
@@ -401,14 +446,29 @@ export default function Evento1015({
                     disabled={data.num_os.trim().length > 0}
                     placeholder="Digite o número da carga"
                   />
-                  <button
-                    type="button"
-                    onClick={handleConsultarCarga}
-                    className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
-                    disabled={data.num_os.trim().length > 0}
-                  >
-                    <Search size={18} />
-                  </button>
+                  {buscandoCarga ? (
+                    <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : cargaEncontrada ? (
+                    <button
+                      type="button"
+                      onClick={handleLimparTudo}
+                      className="h-10 w-12 rounded-lg bg-orange-400 text-white flex items-center justify-center hover:bg-orange-500 cursor-pointer transition-colors shadow-sm"
+                      title="Limpar pesquisa"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleConsultarCarga}
+                      className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
+                      disabled={data.num_os.trim().length > 0 || !data.num_carga.trim()}
+                    >
+                      <Search size={18} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -430,16 +490,31 @@ export default function Evento1015({
                     }
                     onKeyDown={(e) => e.key === "Enter" && handleConsultarOS()}
                     disabled={data.num_carga.trim().length > 0}
-                    placeholder="Digite o número da OS"
+                    placeholder="Digite o número da OS (0000.00)"
                   />
-                  <button
-                    type="button"
-                    onClick={handleConsultarOS}
-                    className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
-                    disabled={data.num_carga.trim().length > 0}
-                  >
-                    <Search size={18} />
-                  </button>
+                  {buscando ? (
+                    <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : osEncontrada ? (
+                    <button
+                      type="button"
+                      onClick={handleLimparTudo}
+                      className="h-10 w-12 rounded-lg bg-orange-400 text-white flex items-center justify-center hover:bg-orange-500 cursor-pointer transition-colors shadow-sm"
+                      title="Limpar pesquisa"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleConsultarOS}
+                      className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
+                      disabled={data.num_carga.trim().length > 0 || !data.num_os.trim()}
+                    >
+                      <Search size={18} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -459,26 +534,20 @@ export default function Evento1015({
 
                 {/* Dropdown quando há postos possíveis da API */}
                 {postosPossiveis.length > 0 ? (
-                  <select
-                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent transition-colors"
+                  <SelectDropdown
+                    options={postosPossiveis}
                     value={data.posto_trab}
-                    onChange={(e) => {
+                    onChange={(value) => {
                       const selectedPosto = postosPossiveis.find(
-                        (p) => p.codigo === e.target.value
+                        (p) => p.codigo === value
                       );
-                      setData({ ...data, posto_trab: e.target.value });
+                      setData({ ...data, posto_trab: value });
                       if (selectedPosto) {
                         setDescricaoPostoApi(selectedPosto.descricao);
                       }
                     }}
-                  >
-                    <option value="">Selecione um posto de trabalho</option>
-                    {postosPossiveis.map((posto) => (
-                      <option key={posto.codigo} value={posto.codigo}>
-                        {posto.codigo} - {posto.descricao}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Selecione um posto"
+                  />
                 ) : (
                   /* Input normal sem busca */
                   <input
@@ -498,13 +567,7 @@ export default function Evento1015({
                   />
                 )}
 
-                <div className="mt-2 text-sm min-h-6">
-                  {postosPossiveis.length > 0 ? (
-                    <span className="text-blue-600 text-xs">
-                      Selecione um dos postos disponíveis acima
-                    </span>
-                  ) : null}
-                </div>
+                <div className="mt-2 text-sm min-h-6"></div>
               </div>
 
               <div>
@@ -513,37 +576,45 @@ export default function Evento1015({
                 </label>
                 <div className="flex gap-2">
                   <input
-                    className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent transition-colors"
-                    value={data.operador}
+                    className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
+                    value={nomeOperador ? `${data.operador} (${nomeOperador})` : data.operador}
                     onChange={(e) =>
                       setData({ ...data, operador: e.target.value })
                     }
                     onKeyDown={(e) =>
-                      e.key === "Enter" && handleConsultarOperador()
+                      e.key === "Enter" && !nomeOperador && handleConsultarOperador()
                     }
                     placeholder="Código do operador"
+                    disabled={!!nomeOperador}
                   />
-                  <button
-                    type="button"
-                    onClick={handleConsultarOperador}
-                    className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] cursor-pointer transition-colors shadow-sm"
-                  >
-                    <Search size={18} />
-                  </button>
+                  {buscandoOperador ? (
+                    <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : nomeOperador ? (
+                    <button
+                      type="button"
+                      onClick={handleLimparOperador}
+                      className="h-10 w-12 rounded-lg bg-orange-400 text-white flex items-center justify-center hover:bg-orange-500 cursor-pointer transition-colors shadow-sm"
+                      title="Limpar operador"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleConsultarOperador}
+                      className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] cursor-pointer transition-colors shadow-sm"
+                      disabled={!data.operador.trim()}
+                    >
+                      <Search size={18} />
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2 text-sm min-h-6">
-                  {buscandoOperador ? (
-                    <span className="text-blue-600 flex items-center gap-2">
-                      <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      Buscando operador...
-                    </span>
-                  ) : nomeOperador ? (
-                    <span className="text-green-700 font-medium">
-                      {nomeOperador}
-                    </span>
-                  ) : erroOperador ? (
+                  {erroOperador && !buscandoOperador && (
                     <span className="text-red-600">{erroOperador}</span>
-                  ) : null}
+                  )}
                 </div>
               </div>
             </div>
@@ -622,7 +693,34 @@ export default function Evento1015({
                           {linha.divisao}
                         </td>
                         <td className="px-4 py-3 border-b border-gray-200 text-right font-medium">
-                          {linha.quantidade.toLocaleString()}
+                          {editingRowIndex === index ? (
+                            <input
+                              type="number"
+                              value={tempQuantidade}
+                              onChange={(e) =>
+                                setTempQuantidade(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleSalvarEdicao(index);
+                                } else if (e.key === "Escape") {
+                                  handleCancelarEdicao();
+                                }
+                              }}
+                              onBlur={() => handleSalvarEdicao(index)}
+                              className="w-full text-right border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent bg-white"
+                              autoFocus
+                              min="1"
+                            />
+                          ) : (
+                            <span
+                              onClick={() => handleEditarQuantidade(index)}
+                              className="cursor-pointer hover:bg-blue-50 hover:text-blue-700 px-2 py-1 rounded transition-colors inline-block w-full"
+                              title="Clique para editar"
+                            >
+                              {linha.quantidade.toLocaleString()}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}

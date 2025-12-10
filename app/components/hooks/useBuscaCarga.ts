@@ -65,11 +65,21 @@ export const useBuscaCarga = () => {
         cargasPrioritarias: resposta.cargas_prioritarias,
       };
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao buscar carga:", error);
       const mensagem = getApiErrorMessage(
         error,
         "Não foi possível consultar a carga."
       );
+
+      // Log adicional para debug
+      if (error instanceof Error) {
+        console.log("Detalhes do erro:", {
+          message: error.message,
+          status: (error as any).status,
+          url: `/cargas?numero_carga=${encodeURIComponent(numero)}`,
+        });
+      }
+
       setErroBuscaCarga(mensagem);
       notifyError(mensagem);
       return {

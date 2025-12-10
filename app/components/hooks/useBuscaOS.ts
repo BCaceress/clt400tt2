@@ -88,7 +88,7 @@ export const useBuscaOS = () => {
     }
   };
 
-  const consultarOSCompleta = async (numeroOS: string) => {
+  const consultarOSCompleta = async (numeroOS: string, evento?: number) => {
     const numero = numeroOS.trim();
     if (!numero) {
       setErroBuscaOS("Informe o número da OS para pesquisar.");
@@ -107,9 +107,10 @@ export const useBuscaOS = () => {
     setBuscandoOS(true);
 
     try {
-      const resposta = await apiService.get<OrdemApiResponse>(
-        `/cargas?numero_os=${encodeURIComponent(numero)}`
-      );
+      const url = `/cargas?numero_os=${encodeURIComponent(numero)}${
+        evento ? `&evento=${evento}` : ""
+      }`;
+      const resposta = await apiService.get<OrdemApiResponse>(url);
       const dados = resposta.divisoes ?? [];
       const linhasComNumeroOS = dados.map((linha) => ({
         ...linha,
