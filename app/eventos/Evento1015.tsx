@@ -86,8 +86,13 @@ export default function Evento1015({
 
   // Hooks customizados
   const { consultarOSCompleta } = useBuscaOS();
-  const { nomeOperador, erroOperador, buscandoOperador, consultarOperador, limparOperador } =
-    useBuscaOperador();
+  const {
+    nomeOperador,
+    erroOperador,
+    buscandoOperador,
+    consultarOperador,
+    limparOperador,
+  } = useBuscaOperador();
   const { consultarCarga, buscandoCarga } = useBuscaCarga();
   const { salvando, salvarEvento } = useSalvarEvento();
   const { cancelarERedirecionarParaHome } = useNavigation();
@@ -464,7 +469,9 @@ export default function Evento1015({
                       type="button"
                       onClick={handleConsultarCarga}
                       className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
-                      disabled={data.num_os.trim().length > 0 || !data.num_carga.trim()}
+                      disabled={
+                        data.num_os.trim().length > 0 || !data.num_carga.trim()
+                      }
                     >
                       <Search size={18} />
                     </button>
@@ -510,7 +517,9 @@ export default function Evento1015({
                       type="button"
                       onClick={handleConsultarOS}
                       className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
-                      disabled={data.num_carga.trim().length > 0 || !data.num_os.trim()}
+                      disabled={
+                        data.num_carga.trim().length > 0 || !data.num_os.trim()
+                      }
                     >
                       <Search size={18} />
                     </button>
@@ -577,12 +586,18 @@ export default function Evento1015({
                 <div className="flex gap-2">
                   <input
                     className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
-                    value={nomeOperador ? `${data.operador} (${nomeOperador})` : data.operador}
+                    value={
+                      nomeOperador
+                        ? `${data.operador} (${nomeOperador})`
+                        : data.operador
+                    }
                     onChange={(e) =>
                       setData({ ...data, operador: e.target.value })
                     }
                     onKeyDown={(e) =>
-                      e.key === "Enter" && !nomeOperador && handleConsultarOperador()
+                      e.key === "Enter" &&
+                      !nomeOperador &&
+                      handleConsultarOperador()
                     }
                     placeholder="Código do operador"
                     disabled={!!nomeOperador}
