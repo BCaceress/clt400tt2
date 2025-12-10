@@ -8,6 +8,7 @@ import ConsultaOSModal from "./components/ConsultaOSModal";
 import { notifyError, notifyInfo } from "./components/NotificationsProvider";
 import { EVENTO_COMPONENTS, type EventoProps } from "./eventos";
 import type { OrdemServico } from "./types/os";
+import { useParametros } from "./components/hooks";
 
 const OPCOES_EVENTO = [
   { valor: "10", label: "10 - Início de Produção" },
@@ -39,6 +40,9 @@ export default function Page() {
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
 
   const [listaAberta, setListaAberta] = useState(false);
+
+  // Hook para gerenciar parâmetros da empresa
+  const { parametros, loading: loadingParametros } = useParametros();
 
   const codigoEventoNumero = Number(
     codigoEvento.match(/^\d+/)?.[0] ?? Number.NaN
@@ -156,7 +160,9 @@ export default function Page() {
                   Empresa
                 </p>
                 <p className="text-xl sm:text-2xl font-bold leading-tight">
-                  Empresa Fulano
+                  {loadingParametros
+                    ? "Carregando..."
+                    : parametros?.nome_empresa || "Empresa não definida"}
                 </p>
               </div>
               <button
@@ -171,20 +177,15 @@ export default function Page() {
           </div>
 
           {/* Layout para Tablet e Mobile (sm até lg) */}
-          <div className="flex xl:hidden flex-col items-center text-center space-y-6">
-            {/* COLET Sistemas - CLT400 Tratamento Térmico centralizado */}
-            <div className="space-y-2">
-              <p className="text-xl md:text-2xl font-bold tracking-tight">
-                COLET Sistemas - CLT400 Tratamento Térmico
+          <div className="flex xl:hidden flex-col space-y-6">
+            {/* CLT400 TT e Empresa */}
+            <div className="flex justify-between items-center">
+              <p className="text-lg md:text-xl font-bold">CLT400 TT</p>
+              <p className="text-lg md:text-xl font-bold">
+                {loadingParametros
+                  ? "Carregando..."
+                  : parametros?.nome_empresa || "Empresa não definida"}
               </p>
-              <p className="text-xs uppercase tracking-wider opacity-70 font-medium">
-                Sistema de Eventos
-              </p>
-            </div>
-
-            {/* Empresa */}
-            <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-2 border border-white/20">
-              <p className="text-lg md:text-xl font-bold">Empresa Fulano</p>
             </div>
 
             {/* Input e botões */}

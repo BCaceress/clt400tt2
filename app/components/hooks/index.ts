@@ -10,3 +10,4 @@ export { useBuscaInstrumento } from "./useBuscaInstrumento";
 export { useBuscaPosto } from "./useBuscaPosto";
 export { useBuscaCarga } from "./useBuscaCarga";
 export { useSalvarEvento } from "./useSalvarEvento";
+export { useParametros } from "./useParametros";

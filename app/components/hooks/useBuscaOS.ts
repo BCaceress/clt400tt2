@@ -10,9 +10,19 @@ type OrdemBusca = {
   status?: string;
 };
 
+type PostoPossivel = {
+  codigo: string;
+  descricao: string;
+};
+
 type OrdemApiResponse = {
   numero_os: number;
   quantidade_os: number;
+  numero_carga?: number;
+  posto?: string;
+  descricao_posto?: string;
+  postos_possiveis?: PostoPossivel[];
+  cargas_prioritarias?: string;
   divisoes: Array<{
     numero_os?: number;
     divisao: number;
@@ -82,7 +92,15 @@ export const useBuscaOS = () => {
     const numero = numeroOS.trim();
     if (!numero) {
       setErroBuscaOS("Informe o número da OS para pesquisar.");
-      return { linhas: [], referencia: null };
+      return {
+        linhas: [],
+        referencia: null,
+        posto: undefined,
+        descricaoPosto: undefined,
+        postosPossiveis: undefined,
+        numeroCarga: undefined,
+        cargasPrioritarias: undefined,
+      };
     }
 
     setErroBuscaOS(null);
@@ -90,7 +108,7 @@ export const useBuscaOS = () => {
 
     try {
       const resposta = await apiService.get<OrdemApiResponse>(
-        `/ordens?numero_os=${encodeURIComponent(numero)}`
+        `/cargas?numero_os=${encodeURIComponent(numero)}`
       );
       const dados = resposta.divisoes ?? [];
       const linhasComNumeroOS = dados.map((linha) => ({
@@ -105,7 +123,15 @@ export const useBuscaOS = () => {
         setErroBuscaOS("Nenhuma divisão encontrada para a OS informada.");
       }
 
-      return { linhas: linhasComNumeroOS, referencia: referenciaTexto };
+      return {
+        linhas: linhasComNumeroOS,
+        referencia: referenciaTexto,
+        posto: resposta.posto,
+        descricaoPosto: resposta.descricao_posto,
+        postosPossiveis: resposta.postos_possiveis,
+        numeroCarga: resposta.numero_carga,
+        cargasPrioritarias: resposta.cargas_prioritarias,
+      };
     } catch (error) {
       console.error(error);
       const mensagem = getApiErrorMessage(
@@ -114,7 +140,15 @@ export const useBuscaOS = () => {
       );
       setErroBuscaOS(mensagem);
       notifyError(mensagem);
-      return { linhas: [], referencia: null };
+      return {
+        linhas: [],
+        referencia: null,
+        posto: undefined,
+        descricaoPosto: undefined,
+        postosPossiveis: undefined,
+        numeroCarga: undefined,
+        cargasPrioritarias: undefined,
+      };
     } finally {
       setBuscandoOS(false);
     }

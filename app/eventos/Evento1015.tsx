@@ -1,11 +1,10 @@
 ﻿"use client";
 
 import { useState } from "react";
-import { Save, Search } from "lucide-react";
+import { Save, Search, AlertCircle } from "lucide-react";
 import {
   useBuscaOS,
   useBuscaOperador,
-  useBuscaPosto,
   useBuscaCarga,
   useSalvarEvento,
   useNavigation,
@@ -34,6 +33,21 @@ type LinhaResultado = {
   quantidade: number;
 };
 
+type PostoPossivel = {
+  codigo: string;
+  descricao: string;
+};
+
+type ApiResult = {
+  linhas: LinhaResultado[];
+  referencia: string | null;
+  posto?: string;
+  descricaoPosto?: string;
+  postosPossiveis?: PostoPossivel[];
+  numeroCarga?: number;
+  cargasPrioritarias?: string;
+};
+
 export default function Evento1015({
   tipoEvento,
   osSelecionada,
@@ -49,12 +63,22 @@ export default function Evento1015({
   const [erroBusca, setErroBusca] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
 
+  // Estado para informações de posto vindas da API
+  const [postoApi, setPostoApi] = useState<string | null>(null);
+  const [descricaoPostoApi, setDescricaoPostoApi] = useState<string | null>(
+    null
+  );
+  const [postosPossiveis, setPostosPossiveis] = useState<PostoPossivel[]>([]);
+
+  // Estado para modal de cargas prioritárias
+  const [showPriorityModal, setShowPriorityModal] = useState(false);
+  const [priorityCargas, setPriorityCargas] = useState<string>("");
+  const [pendingResult, setPendingResult] = useState<ApiResult | null>(null);
+
   // Hooks customizados
   const { consultarOSCompleta } = useBuscaOS();
   const { nomeOperador, erroOperador, buscandoOperador, consultarOperador } =
     useBuscaOperador();
-  const { descricaoPosto, erroPosto, buscandoPosto, consultarPosto } =
-    useBuscaPosto();
   const { consultarCarga } = useBuscaCarga();
   const { salvando, salvarEvento } = useSalvarEvento();
   const { cancelarERedirecionarParaHome } = useNavigation();
@@ -65,16 +89,33 @@ export default function Evento1015({
     setLinhas([]);
     setReferencia(null);
     setErroBusca(null);
+    setPostoApi(null);
+    setDescricaoPostoApi(null);
+    setPostosPossiveis([]);
   };
 
   const handleConsultarCarga = async () => {
     setBuscando(true);
     setErroBusca(null);
 
+    // Limpar outros campos antes da nova pesquisa
+    setData((prev) => ({ ...prev, num_os: "", operador: "", posto_trab: "" }));
+    limparResultado();
+
     try {
       const resultado = await consultarCarga(data.num_carga);
-      setLinhas(resultado.linhas);
-      setReferencia(resultado.referencia);
+
+      // Verificar se há cargas prioritárias
+      if (resultado.cargasPrioritarias && resultado.cargasPrioritarias.trim()) {
+        setPriorityCargas(resultado.cargasPrioritarias);
+        setPendingResult(resultado);
+        setShowPriorityModal(true);
+        setBuscando(false);
+        return;
+      }
+
+      // Processar resultado normalmente se não há cargas prioritárias
+      processarResultadoBusca(resultado);
 
       if (resultado.linhas.length === 0 && resultado.referencia) {
         setErroBusca("Nenhuma OS encontrada para a carga informada.");
@@ -90,10 +131,46 @@ export default function Evento1015({
     setBuscando(true);
     setErroBusca(null);
 
+    // Limpar outros campos antes da nova pesquisa
+    setData((prev) => ({
+      ...prev,
+      num_carga: "",
+      operador: "",
+      posto_trab: "",
+    }));
+    limparResultado();
+
     try {
       const resultado = await consultarOSCompleta(data.num_os);
       setLinhas(resultado.linhas);
       setReferencia(resultado.referencia);
+
+      // Processar número da carga se retornado pela API
+      if (resultado.numeroCarga) {
+        setData((prev) => ({
+          ...prev,
+          num_carga: resultado.numeroCarga!.toString(),
+        }));
+      }
+
+      // Processar informações de posto vindas da API
+      if (resultado.posto && resultado.descricaoPosto) {
+        setPostoApi(resultado.posto);
+        setDescricaoPostoApi(resultado.descricaoPosto);
+        setData((prev) => ({ ...prev, posto_trab: resultado.posto! }));
+        setPostosPossiveis([]);
+      } else if (
+        resultado.postosPossiveis &&
+        resultado.postosPossiveis.length > 0
+      ) {
+        setPostosPossiveis(resultado.postosPossiveis);
+        setPostoApi(null);
+        setDescricaoPostoApi(null);
+      } else {
+        setPostoApi(null);
+        setDescricaoPostoApi(null);
+        setPostosPossiveis([]);
+      }
 
       if (resultado.linhas.length === 0 && resultado.referencia) {
         setErroBusca("Nenhuma divisão encontrada para a OS informada.");
@@ -109,8 +186,101 @@ export default function Evento1015({
     await consultarOperador(data.operador);
   };
 
-  const handleConsultarPosto = async () => {
-    await consultarPosto(data.posto_trab);
+  const processarResultadoBusca = (resultado: ApiResult) => {
+    setLinhas(resultado.linhas);
+    setReferencia(resultado.referencia);
+
+    // Processar informações de posto vindas da API
+    if (resultado.posto && resultado.descricaoPosto) {
+      setPostoApi(resultado.posto);
+      setDescricaoPostoApi(resultado.descricaoPosto);
+      setData((prev) => ({ ...prev, posto_trab: resultado.posto! }));
+      setPostosPossiveis([]);
+    } else if (
+      resultado.postosPossiveis &&
+      resultado.postosPossiveis.length > 0
+    ) {
+      setPostosPossiveis(resultado.postosPossiveis);
+      setPostoApi(null);
+      setDescricaoPostoApi(null);
+    } else {
+      setPostoApi(null);
+      setDescricaoPostoApi(null);
+      setPostosPossiveis([]);
+    }
+  };
+
+  const processarResultadoOS = (resultado: ApiResult) => {
+    setLinhas(resultado.linhas);
+    setReferencia(resultado.referencia);
+
+    // Processar número da carga se retornado pela API
+    if (resultado.numeroCarga) {
+      setData((prev) => ({
+        ...prev,
+        num_carga: resultado.numeroCarga!.toString(),
+      }));
+    }
+
+    // Processar informações de posto vindas da API
+    if (resultado.posto && resultado.descricaoPosto) {
+      setPostoApi(resultado.posto);
+      setDescricaoPostoApi(resultado.descricaoPosto);
+      setData((prev) => ({ ...prev, posto_trab: resultado.posto! }));
+      setPostosPossiveis([]);
+    } else if (
+      resultado.postosPossiveis &&
+      resultado.postosPossiveis.length > 0
+    ) {
+      setPostosPossiveis(resultado.postosPossiveis);
+      setPostoApi(null);
+      setDescricaoPostoApi(null);
+    } else {
+      setPostoApi(null);
+      setDescricaoPostoApi(null);
+      setPostosPossiveis([]);
+    }
+  };
+
+  const handlePriorityConfirm = () => {
+    if (pendingResult) {
+      if (pendingResult.numeroCarga) {
+        // É resultado de busca por OS
+        processarResultadoOS(pendingResult);
+      } else {
+        // É resultado de busca por carga
+        processarResultadoBusca(pendingResult);
+      }
+    }
+    setShowPriorityModal(false);
+    setPendingResult(null);
+    setPriorityCargas("");
+    setBuscando(false);
+  };
+
+  const handlePriorityCancel = () => {
+    // Limpar campos e posicionar no campo de carga
+    setData({
+      num_carga: "",
+      num_os: "",
+      operador: "",
+      posto_trab: "",
+    });
+    limparResultado();
+    setShowPriorityModal(false);
+    setPendingResult(null);
+    setPriorityCargas("");
+    setBuscando(false);
+
+    // Focar no campo de carga após fechar o modal
+    setTimeout(() => {
+      const cargaInput = document.querySelector(
+        'input[placeholder="Digite o número da carga"]'
+      ) as HTMLInputElement;
+      if (cargaInput) {
+        cargaInput.focus();
+      }
+    }, 100);
   };
 
   const handleSalvar = async () => {
@@ -136,10 +306,23 @@ export default function Evento1015({
 
     if (!data.posto_trab.trim()) {
       erros.push("O campo Posto de Trabalho é obrigatório.");
-    } else if (!descricaoPosto || erroPosto) {
-      erros.push(
-        "É necessário pesquisar e encontrar um posto de trabalho válido."
+    } else {
+      // Validar posto: deve ter descrição da API ou ter sido selecionado da lista
+      const temDescricaoApi = !!descricaoPostoApi;
+      const postoSelecionadoDaLista = postosPossiveis.some(
+        (p) => p.codigo === data.posto_trab.trim()
       );
+
+      // Se não tem descrição da API e não foi selecionado da lista, é um posto digitado manualmente (aceito)
+      if (
+        !temDescricaoApi &&
+        !postoSelecionadoDaLista &&
+        postosPossiveis.length > 0
+      ) {
+        erros.push(
+          "É necessário selecionar um dos postos de trabalho disponíveis."
+        );
+      }
     }
 
     if (!data.operador.trim()) {
@@ -176,6 +359,9 @@ export default function Evento1015({
     setLinhas([]);
     setReferencia(null);
     setErroBusca(null);
+    setPostoApi(null);
+    setDescricaoPostoApi(null);
+    setPostosPossiveis([]);
     cancelarERedirecionarParaHome();
   };
 
@@ -203,6 +389,7 @@ export default function Evento1015({
                 </label>
                 <div className="flex gap-2">
                   <input
+                    type="number"
                     className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
                     value={data.num_carga}
                     onChange={(e) =>
@@ -225,12 +412,17 @@ export default function Evento1015({
                 </div>
               </div>
 
-              <div>
+              <div
+                className={`${
+                  data.num_carga.trim().length > 0 ? "hidden md:block" : ""
+                }`}
+              >
                 <label className="block text-sm font-semibold mb-2 text-gray-700">
                   Número da OS
                 </label>
                 <div className="flex gap-2">
                   <input
+                    type="number"
                     className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
                     value={data.num_os}
                     onChange={(e) =>
@@ -259,43 +451,58 @@ export default function Evento1015({
               Dados Operacionais
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 md:gap-6">
               <div>
                 <label className="block text-sm font-semibold mb-2 text-gray-700">
                   Posto de Trabalho <span className="text-red-500">*</span>
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent transition-colors"
+
+                {/* Dropdown quando há postos possíveis da API */}
+                {postosPossiveis.length > 0 ? (
+                  <select
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent transition-colors"
                     value={data.posto_trab}
+                    onChange={(e) => {
+                      const selectedPosto = postosPossiveis.find(
+                        (p) => p.codigo === e.target.value
+                      );
+                      setData({ ...data, posto_trab: e.target.value });
+                      if (selectedPosto) {
+                        setDescricaoPostoApi(selectedPosto.descricao);
+                      }
+                    }}
+                  >
+                    <option value="">Selecione um posto de trabalho</option>
+                    {postosPossiveis.map((posto) => (
+                      <option key={posto.codigo} value={posto.codigo}>
+                        {posto.codigo} - {posto.descricao}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  /* Input normal sem busca */
+                  <input
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
+                    value={
+                      postoApi && descricaoPostoApi
+                        ? `${postoApi} (${descricaoPostoApi})`
+                        : data.posto_trab
+                    }
                     onChange={(e) =>
                       setData({ ...data, posto_trab: e.target.value })
                     }
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleConsultarPosto()
+                    placeholder={
+                      postoApi ? "Posto definido pela API" : "Código do posto"
                     }
-                    placeholder="Código do posto"
+                    disabled={!!postoApi}
                   />
-                  <button
-                    type="button"
-                    onClick={handleConsultarPosto}
-                    className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] cursor-pointer transition-colors shadow-sm"
-                  >
-                    <Search size={18} />
-                  </button>
-                </div>
+                )}
+
                 <div className="mt-2 text-sm min-h-6">
-                  {buscandoPosto ? (
-                    <span className="text-blue-600 flex items-center gap-2">
-                      <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      Buscando posto...
+                  {postosPossiveis.length > 0 ? (
+                    <span className="text-blue-600 text-xs">
+                      Selecione um dos postos disponíveis acima
                     </span>
-                  ) : descricaoPosto ? (
-                    <span className="text-green-700 font-medium">
-                      {descricaoPosto}
-                    </span>
-                  ) : erroPosto ? (
-                    <span className="text-red-600">{erroPosto}</span>
                   ) : null}
                 </div>
               </div>
@@ -346,20 +553,25 @@ export default function Evento1015({
         {/* Seção de Resultados */}
         <div className="xl:col-span-1">
           <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm h-full">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Resultados
-                </h3>
-                <p className="text-xs text-gray-600 mt-1">
-                  Pesquise por carga ou OS para visualizar os dados
-                </p>
+            <div className="mb-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Resultados
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Pesquise por carga ou OS para visualizar os dados
+                  </p>
+                </div>
+                {referencia && (
+                  <span className="text-xs font-semibold text-white bg-[#3C787A] px-3 py-1 rounded-full whitespace-nowrap inline-block">
+                    <span className="lg:hidden">
+                      {referencia.replace(/^(CARGA|Carga|carga)\s*/i, "")}
+                    </span>
+                    <span className="hidden lg:inline">{referencia}</span>
+                  </span>
+                )}
               </div>
-              {referencia && (
-                <span className="text-xs font-semibold text-white bg-[#3C787A] px-3 py-1 rounded-full whitespace-nowrap">
-                  {referencia}
-                </span>
-              )}
             </div>
 
             {erroBusca && (
@@ -453,6 +665,55 @@ export default function Evento1015({
           {salvando ? "Salvando..." : "Salvar"}
         </button>
       </div>
+
+      {/* Modal de Cargas Prioritárias */}
+      {showPriorityModal && (
+        <div className="fixed top-0 left-0 w-screen h-screen bg-black/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-lg animate-in fade-in duration-200">
+            {/* Cabeçalho */}
+            <div className="bg-[#3C787A] text-white px-6 py-4 rounded-t-xl">
+              <h3 className="text-lg font-semibold flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6 text-yellow-900" />
+                </div>
+                Atenção
+              </h3>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="p-6">
+              <p className="text-gray-700 leading-relaxed mb-2">
+                As seguintes cargas são prioritárias e deveriam ser produzidas
+                antes desta:
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <span className="font-semibold text-red-700">
+                  {priorityCargas}
+                </span>
+              </div>
+              <p className="text-gray-700 font-medium">
+                Deseja prosseguir mesmo assim?
+              </p>
+            </div>
+
+            {/* Botões */}
+            <div className="flex gap-3 px-6 pb-6 sm:justify-end">
+              <button
+                onClick={handlePriorityCancel}
+                className="flex-1 sm:flex-none px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-all duration-150 font-medium"
+              >
+                Não
+              </button>
+              <button
+                onClick={handlePriorityConfirm}
+                className="flex-1 sm:flex-none px-5 py-2.5 bg-[#3C787A] text-white rounded-lg hover:bg-[#2d5c5e] active:bg-[#245456] transition-all duration-150 font-medium shadow-sm"
+              >
+                Sim, prosseguir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

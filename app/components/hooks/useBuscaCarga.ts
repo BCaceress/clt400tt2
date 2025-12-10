@@ -3,8 +3,17 @@ import { apiService } from "../../services/api";
 import { notifyError } from "../NotificationsProvider";
 import { useApiError } from "./useApiError";
 
+type PostoPossivel = {
+  codigo: string;
+  descricao: string;
+};
+
 type CargaApiResponse = {
   numero_carga: number;
+  posto?: string;
+  descricao_posto?: string;
+  postos_possiveis?: PostoPossivel[];
+  cargas_prioritarias?: string;
   oss: Array<{
     numero_os?: number;
     divisao: number;
@@ -24,7 +33,13 @@ export const useBuscaCarga = () => {
     const numero = numeroCarga.trim();
     if (!numero) {
       setErroBuscaCarga("Informe o número da carga para pesquisar.");
-      return { linhas: [], referencia: null };
+      return {
+        linhas: [],
+        referencia: null,
+        posto: undefined,
+        descricaoPosto: undefined,
+        postosPossiveis: undefined,
+      };
     }
 
     setErroBuscaCarga(null);
@@ -41,7 +56,14 @@ export const useBuscaCarga = () => {
         setErroBuscaCarga("Nenhuma OS encontrada para a carga informada.");
       }
 
-      return { linhas: dados, referencia };
+      return {
+        linhas: dados,
+        referencia,
+        posto: resposta.posto,
+        descricaoPosto: resposta.descricao_posto,
+        postosPossiveis: resposta.postos_possiveis,
+        cargasPrioritarias: resposta.cargas_prioritarias,
+      };
     } catch (error) {
       console.error(error);
       const mensagem = getApiErrorMessage(
@@ -50,7 +72,14 @@ export const useBuscaCarga = () => {
       );
       setErroBuscaCarga(mensagem);
       notifyError(mensagem);
-      return { linhas: [], referencia: null };
+      return {
+        linhas: [],
+        referencia: null,
+        posto: undefined,
+        descricaoPosto: undefined,
+        postosPossiveis: undefined,
+        cargasPrioritarias: undefined,
+      };
     } finally {
       setBuscandoCarga(false);
     }
