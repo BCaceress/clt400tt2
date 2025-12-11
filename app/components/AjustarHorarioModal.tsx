@@ -55,8 +55,18 @@ export default function AjustarHorarioModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto animate-in fade-in zoom-in duration-200">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      style={{ minHeight: "100dvh" }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200"
+        style={{
+          position: "relative",
+          transform: "translateZ(0)", // Force hardware acceleration for better mobile performance
+          maxHeight: "min(90vh, 90dvh)",
+        }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 bg-[#3C787A] rounded-t-2xl">
           <div className="flex items-center gap-3">

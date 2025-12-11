@@ -81,11 +81,26 @@ export default function ConsultaOSModal({ onClose }: ConsultaOSModalProps) {
   );
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed top-0 left-0 right-0 bottom-0 bg-black/40 z-50 p-4"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100dvh",
+        width: "100vw",
+        height: "100dvh",
+      }}
+    >
       <div
-        className={`bg-white rounded-xl w-full shadow-lg overflow-hidden max-h-[90vh] overflow-y-auto ${
+        className={`bg-white rounded-xl w-full shadow-lg overflow-hidden ${
           resultado ? "max-w-[95vw]" : "max-w-xl"
-        }`}
+        } overflow-y-auto`}
+        style={{
+          position: "relative",
+          transform: "translateZ(0)", // Force hardware acceleration for better mobile performance
+          maxHeight: "90dvh",
+        }}
       >
         <div className="flex items-center justify-between bg-[#3C787A] px-6 py-4">
           <div className="flex items-center gap-3">

@@ -244,100 +244,107 @@ export default function Page() {
             </div>
 
             {/* Input e botões */}
-            <div className="w-full max-w-2xl">
-              <div
-                className="relative flex items-center gap-3"
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setListaAberta(false);
-                  }
-                }}
-              >
-                <div className="relative flex-1">
-                  <input
-                    className="bg-white/95 backdrop-blur text-slate-900 h-12 px-4 pr-12 rounded-xl w-full border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/80 focus:border-white/60 text-sm md:text-base placeholder-slate-500 transition-all duration-200"
-                    placeholder="Digite o código ou escolha na lista"
-                    value={codigoEvento}
-                    onChange={(e) => setCodigoEvento(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && carregarEvento()}
-                  />
+            <div className="w-full space-y-3">
+              {/* Linha principal: Input de evento + Botão Consultar OS */}
+              <div className="flex gap-3 w-full">
+                <div
+                  className="relative flex-1"
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setListaAberta(false);
+                    }
+                  }}
+                >
                   <button
                     type="button"
-                    aria-label="Mostrar opcoes de evento"
-                    className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer transition-colors duration-200"
+                    className="bg-white/95 backdrop-blur text-slate-900 h-12 px-4 pr-12 rounded-xl w-full border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/80 focus:border-white/60 text-sm md:text-base transition-all duration-200 text-left"
                     onClick={() => setListaAberta((prev) => !prev)}
-                    tabIndex={-1}
                   >
+                    <span
+                      className={
+                        codigoEvento ? "text-slate-900" : "text-slate-500"
+                      }
+                    >
+                      {codigoEvento || "Selecione um evento da lista"}
+                    </span>
+                  </button>
+                  <div className="absolute inset-y-0 right-3 flex items-center justify-center text-slate-500 pointer-events-none">
                     <ChevronDown
                       className={`h-4 w-4 transition-transform duration-200 ${
                         listaAberta ? "rotate-180" : ""
                       }`}
                     />
-                  </button>
+                  </div>
+
+                  {listaAberta && (
+                    <div className="absolute left-0 top-14 z-50 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200/50 bg-white/95 backdrop-blur-md shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="p-2">
+                        {OPCOES_EVENTO.map((opcao) => (
+                          <button
+                            key={opcao.valor}
+                            type="button"
+                            className="flex w-full items-center px-4 py-3 text-left text-base text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-150 hover:shadow-sm"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setCodigoEvento(opcao.label);
+                              setListaAberta(false);
+                              // Auto-carregar evento após seleção no mobile/tablet
+                              setTimeout(() => {
+                                const cod = Number(opcao.valor);
+                                if (
+                                  Number.isInteger(cod) &&
+                                  EVENTO_COMPONENTS[cod]
+                                ) {
+                                  setEventoValido(true);
+                                }
+                              }, 100);
+                            }}
+                          >
+                            <span className="font-bold text-[#3C787A] mr-3">
+                              {opcao.valor}
+                            </span>
+                            <span>{opcao.label.split(" - ")[1]}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <button
-                  onClick={carregarEvento}
-                  aria-label="Carregar evento"
-                  className="h-12 w-20 bg-white/20 backdrop-blur text-white font-semibold rounded-xl shadow-lg hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/80 flex items-center justify-center cursor-pointer transition-all duration-200 border border-white/20"
+                  onClick={() => setShowModal(true)}
+                  className="h-12 px-4 sm:px-6 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 flex items-center justify-center shadow-lg whitespace-nowrap"
                   type="button"
                 >
-                  <Search className="w-5 h-5" />
-                  <span className="sr-only">Carregar</span>
+                  <FileSearch className="w-5 h-5 mr-2" />
+                  <span>Consultar OS</span>
                 </button>
+              </div>
 
-                {alteraData && (
+              {/* Segunda linha: Botão Ajustar Horário (se habilitado) */}
+              {alteraData && (
+                <div className="flex w-full">
                   <button
                     onClick={() => setShowHorarioModal(true)}
-                    className={`h-12 w-12 backdrop-blur border rounded-xl font-semibold hover:scale-105 focus:outline-none focus:ring-2 transition-all duration-200 flex items-center justify-center shadow-lg ${
+                    className={`h-12 w-full backdrop-blur border rounded-xl font-semibold hover:scale-105 focus:outline-none focus:ring-2 transition-all duration-200 flex items-center justify-center shadow-lg whitespace-nowrap ${
                       horarioCustomizado.alterado
                         ? "bg-amber-500/20 border-amber-300/50 hover:bg-amber-500/30 focus:ring-amber-400/60"
                         : "bg-white/20 border-white/30 hover:bg-white/30 focus:ring-white/60"
                     }`}
                     type="button"
                   >
-                    <Clock className="w-5 h-5" />
-                    <span className="sr-only">
+                    <Clock className="w-5 h-5 mr-2" />
+                    <span className="hidden sm:inline">
                       {horarioCustomizado.alterado
                         ? "Horário Ajustado"
                         : "Ajustar Horário"}
                     </span>
+                    <span className="sm:hidden">
+                      {horarioCustomizado.alterado ? "Ajustado" : "Horário"}
+                    </span>
                   </button>
-                )}
-
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="h-12 w-12 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 flex items-center justify-center shadow-lg"
-                  type="button"
-                >
-                  <FileSearch className="w-5 h-5" />
-                  <span className="sr-only">Consultar OS</span>
-                </button>
-
-                {listaAberta && (
-                  <div className="absolute left-0 top-14 z-50 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200/50 bg-white/95 backdrop-blur-md shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="p-2">
-                      {OPCOES_EVENTO.map((opcao) => (
-                        <button
-                          key={opcao.valor}
-                          type="button"
-                          className="flex w-full items-center px-4 py-3 text-left text-base text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-150 hover:shadow-sm"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            setCodigoEvento(opcao.label);
-                            setListaAberta(false);
-                          }}
-                        >
-                          <span className="font-bold text-[#3C787A] mr-3">
-                            {opcao.valor}
-                          </span>
-                          <span>{opcao.label.split(" - ")[1]}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
