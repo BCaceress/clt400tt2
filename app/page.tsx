@@ -12,9 +12,10 @@ import type { OrdemServico } from "./types/os";
 import { useParametros, useHorarioCustomizado } from "./components/hooks";
 
 const OPCOES_EVENTO = [
-  { valor: "10", label: "10 - Início de Produção" },
-  { valor: "15", label: "15 - Fim de Produção" },
+  { valor: "10", label: "10 - Início de Carga" },
+  { valor: "15", label: "15 - Término de Carga" },
   { valor: "13", label: "13 - Divisão de OS" },
+  { valor: "18", label: "18 - Início de Inspeção" },
   { valor: "19", label: "19 - Resultado de Etapa" },
   { valor: "80", label: "80 - Resultado de Inspeção" },
   { valor: "85", label: "85 - Resultado de Inspeção de Carga" },

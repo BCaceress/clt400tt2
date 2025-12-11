@@ -2,6 +2,8 @@ import type { ComponentType } from "react";
 import { createElement } from "react";
 import type { OrdemServico } from "../types/os";
 import Evento1015 from "./Evento1015";
+import Evento13 from "./Evento13";
+import Evento18 from "./Evento18";
 import Evento19 from "./Evento19";
 
 export interface EventoProps {
@@ -21,6 +23,8 @@ const Evento15 = (props: EventoProps) => {
 
 export const EVENTO_COMPONENTS: Record<number, ComponentType<EventoProps>> = {
   10: Evento10,
+  13: Evento13,
   15: Evento15,
+  18: Evento18,
   19: Evento19,
 };
