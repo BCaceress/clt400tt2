@@ -78,7 +78,7 @@ export default function AjustarHorarioModal({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200"
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200 cursor-pointer"
             type="button"
           >
             <X className="w-5 h-5 text-white" />
@@ -105,7 +105,7 @@ export default function AjustarHorarioModal({
 
           <button
             onClick={handleUsarAgora}
-            className="w-full px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors duration-200 border border-slate-300"
+            className="w-full px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors duration-200 border border-slate-300 cursor-pointer"
             type="button"
           >
             Usar horário atual
@@ -116,7 +116,7 @@ export default function AjustarHorarioModal({
         <div className="flex gap-3 p-6 border-t border-slate-200 rounded-b-2xl">
           <button
             onClick={onClose}
-            className="flex-1 px-6 py-3 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-all duration-200 font-medium"
+            className="flex-1 px-6 py-3 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-all duration-200 font-medium cursor-pointer"
             type="button"
           >
             Cancelar
@@ -125,7 +125,7 @@ export default function AjustarHorarioModal({
           <button
             onClick={handleConfirm}
             disabled={!dataHora}
-            className="flex-1 px-6 py-3 bg-[#3C787A] text-white rounded-xl hover:bg-[#2D5A5C] disabled:opacity-50 transition-all duration-200 font-medium"
+            className="flex-1 px-6 py-3 bg-[#3C787A] text-white rounded-xl hover:bg-[#2D5A5C] disabled:opacity-50 transition-all duration-200 font-medium cursor-pointer"
             type="button"
           >
             Confirmar

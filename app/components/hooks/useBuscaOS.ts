@@ -23,10 +23,20 @@ type OrdemApiResponse = {
   descricao_posto?: string;
   postos_possiveis?: PostoPossivel[];
   cargas_prioritarias?: string;
-  divisoes: Array<{
+  prioritaria?: string;
+  situacao?: string;
+  tipo_servico?: string;
+  descricao_tipo_servico?: string;
+  divisoes?: Array<{
     numero_os?: number;
     divisao: number;
     quantidade: number;
+  }>;
+  oss?: Array<{
+    numero_os?: number;
+    divisao: number;
+    quantidade: number;
+    divisao_origem?: number;
   }>;
 };
 
@@ -111,13 +121,24 @@ export const useBuscaOS = () => {
         evento ? `&evento=${evento}` : ""
       }`;
       const resposta = await apiService.get<OrdemApiResponse>(url);
-      const dados = resposta.divisoes ?? [];
+      // A API pode retornar 'oss' ou 'divisoes' dependendo do contexto
+      const dados = resposta.oss ?? resposta.divisoes ?? [];
+
+      // Determinar o número da OS a partir da resposta ou do que foi pesquisado
+      const numeroOSFinal =
+        resposta.numero_os ??
+        dados[0]?.numero_os ??
+        (parseInt(numero) || undefined);
+
       const linhasComNumeroOS = dados.map((linha) => ({
         ...linha,
-        numero_os: resposta.numero_os,
+        numero_os:
+          typeof linha.numero_os === "string"
+            ? parseInt(linha.numero_os) || undefined
+            : linha.numero_os ?? numeroOSFinal,
       }));
 
-      const referenciaTexto = `OS ${resposta.numero_os}`;
+      const referenciaTexto = `OS ${numeroOSFinal ?? numero}`;
       setReferencia(referenciaTexto);
 
       if (dados.length === 0) {

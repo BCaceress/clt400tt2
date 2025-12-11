@@ -1,11 +1,10 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { ComponentType } from "react";
 import Image from "next/image";
-import { ChevronDown, Search, FileSearch, Clock } from "lucide-react";
+import { ChevronDown, Search, FileSearch } from "lucide-react";
 import ConsultaOSModal from "./components/ConsultaOSModal";
-import AjustarHorarioModal from "./components/AjustarHorarioModal";
 import { notifyError, notifyInfo } from "./components/NotificationsProvider";
 import { EVENTO_COMPONENTS, type EventoProps } from "./eventos";
 import type { OrdemServico } from "./types/os";
@@ -39,9 +38,7 @@ export default function Page() {
   const [codigoEvento, setCodigoEvento] = useState("");
   const [eventoValido, setEventoValido] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showHorarioModal, setShowHorarioModal] = useState(false);
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
-  const [alteraData, setAlteraData] = useState<boolean>(false);
 
   const [listaAberta, setListaAberta] = useState(false);
 
@@ -49,37 +46,7 @@ export default function Page() {
   const { parametros, loading: loadingParametros } = useParametros();
 
   // Hook para gerenciar horário customizado
-  const { horarioCustomizado, ajustarHorario, obterDataHoraParaEnvio } =
-    useHorarioCustomizado();
-
-  // Monitora mudanças no localStorage para altera_data
-  useEffect(() => {
-    const verificarAlteraData = () => {
-      try {
-        const parametrosStorage = localStorage.getItem("clt400tt_parametros");
-        if (parametrosStorage) {
-          const parametros = JSON.parse(parametrosStorage);
-          setAlteraData(!!parametros.altera_data);
-        }
-      } catch (error) {
-        console.error("Erro ao ler parâmetros do localStorage:", error);
-        setAlteraData(false);
-      }
-    };
-
-    // Verifica inicialmente
-    verificarAlteraData();
-
-    // Listener para mudanças no localStorage
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "clt400tt_parametros") {
-        verificarAlteraData();
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  const { obterDataHoraParaEnvio } = useHorarioCustomizado();
 
   const codigoEventoNumero = Number(
     codigoEvento.match(/^\d+/)?.[0] ?? Number.NaN
@@ -203,22 +170,6 @@ export default function Page() {
                 </p>
               </div>
               <div className="flex flex-row gap-3">
-                {alteraData && (
-                  <button
-                    onClick={() => setShowHorarioModal(true)}
-                    className={`px-6 py-3 backdrop-blur border rounded-xl font-semibold hover:scale-105 focus:outline-none focus:ring-2 transition-all duration-200 whitespace-nowrap shadow-lg cursor-pointer ${
-                      horarioCustomizado.alterado
-                        ? "bg-amber-500/20 border-amber-300/50 hover:bg-amber-500/30 focus:ring-amber-400/60 text-amber-100"
-                        : "bg-white/20 border-white/30 hover:bg-white/30 focus:ring-white/60"
-                    }`}
-                    type="button"
-                  >
-                    <Clock className="w-4 h-4 inline mr-2" />
-                    {horarioCustomizado.alterado
-                      ? "Horário Ajustado"
-                      : "Ajustar Horário"}
-                  </button>
-                )}
                 <button
                   onClick={() => setShowModal(true)}
                   className="px-6 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 whitespace-nowrap shadow-lg cursor-pointer"
@@ -320,31 +271,6 @@ export default function Page() {
                   <span>Consultar OS</span>
                 </button>
               </div>
-
-              {/* Segunda linha: Botão Ajustar Horário (se habilitado) */}
-              {alteraData && (
-                <div className="flex w-full">
-                  <button
-                    onClick={() => setShowHorarioModal(true)}
-                    className={`h-12 w-full backdrop-blur border rounded-xl font-semibold hover:scale-105 focus:outline-none focus:ring-2 transition-all duration-200 flex items-center justify-center shadow-lg whitespace-nowrap ${
-                      horarioCustomizado.alterado
-                        ? "bg-amber-500/20 border-amber-300/50 hover:bg-amber-500/30 focus:ring-amber-400/60"
-                        : "bg-white/20 border-white/30 hover:bg-white/30 focus:ring-white/60"
-                    }`}
-                    type="button"
-                  >
-                    <Clock className="w-5 h-5 mr-2" />
-                    <span className="hidden sm:inline">
-                      {horarioCustomizado.alterado
-                        ? "Horário Ajustado"
-                        : "Ajustar Horário"}
-                    </span>
-                    <span className="sm:hidden">
-                      {horarioCustomizado.alterado ? "Ajustado" : "Horário"}
-                    </span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </header>
@@ -407,17 +333,6 @@ export default function Page() {
               setOsSelecionada(os);
               setShowModal(false);
             }}
-          />
-        )}
-
-        {showHorarioModal && (
-          <AjustarHorarioModal
-            onClose={() => setShowHorarioModal(false)}
-            onConfirm={(dataHora) => {
-              ajustarHorario(dataHora);
-              setShowHorarioModal(false);
-            }}
-            dataHoraAtual={horarioCustomizado.dataHora}
           />
         )}
       </div>

@@ -224,7 +224,7 @@ export default function Evento18({
                       setData({ ...data, num_os: e.target.value })
                     }
                     onKeyDown={(e) => e.key === "Enter" && handleConsultarOS()}
-                    placeholder="Digite o número da OS"
+                    placeholder="Digite o número da OS e divisão (0000.00)"
                   />
                   {buscandoServicos ? (
                     <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">

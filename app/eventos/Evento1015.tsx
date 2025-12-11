@@ -1,16 +1,18 @@
 ﻿"use client";
 
-import { useState } from "react";
-import { Save, Search, AlertCircle, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Save, Search, Trash2, AlertCircle, Clock } from "lucide-react";
 import {
   useBuscaOS,
   useBuscaOperador,
   useBuscaCarga,
   useSalvarEvento,
   useNavigation,
+  useHorarioCustomizado,
 } from "../components/hooks";
 import { notifyError } from "../components/NotificationsProvider";
 import SelectDropdown from "../components/SelectDropdown";
+import AjustarHorarioModal from "../components/AjustarHorarioModal";
 import type { OrdemServico } from "../types/os";
 
 type TipoEvento = 10 | 15;
@@ -19,7 +21,6 @@ interface Evento1015Props {
   tipoEvento: TipoEvento;
   onConsultarOS: () => void;
   osSelecionada: OrdemServico | null;
-  dataHoraCustomizada?: string;
 }
 
 type EventoForm = {
@@ -53,7 +54,6 @@ type ApiResult = {
 export default function Evento1015({
   tipoEvento,
   osSelecionada,
-  dataHoraCustomizada,
 }: Evento1015Props) {
   const [data, setData] = useState<EventoForm>({
     num_carga: "",
@@ -91,6 +91,12 @@ export default function Evento1015({
   const [cargaEncontrada, setCargaEncontrada] = useState(false);
   const [osEncontrada, setOsEncontrada] = useState(false);
 
+  // Estados para modal de ajustar horário
+  const [showHorarioModal, setShowHorarioModal] = useState(false);
+
+  // Estado para controlar se deve mostrar o botão de ajustar horário
+  const [alteraData, setAlteraData] = useState(false);
+
   // Hooks customizados
   const { consultarOSCompleta } = useBuscaOS();
   const {
@@ -103,9 +109,41 @@ export default function Evento1015({
   const { consultarCarga, buscandoCarga } = useBuscaCarga();
   const { salvando, salvarEvento } = useSalvarEvento();
   const { cancelarERedirecionarParaHome } = useNavigation();
+  const { horarioCustomizado, ajustarHorario, obterDataHoraParaEnvio } =
+    useHorarioCustomizado();
 
   const titulo = tipoEvento === 10 ? "Início de Carga" : "Término de Carga";
 
+  // Efeito para monitorar localStorage e definir alteraData
+  useEffect(() => {
+    const verificarAlteraData = () => {
+      try {
+        const parametrosStorage = localStorage.getItem("clt400tt_parametros");
+        if (parametrosStorage) {
+          const parametros = JSON.parse(parametrosStorage);
+          setAlteraData(!!parametros.altera_data);
+        } else {
+          setAlteraData(false);
+        }
+      } catch (error) {
+        console.error("Erro ao ler parâmetros do localStorage:", error);
+        setAlteraData(false);
+      }
+    };
+
+    // Verifica inicialmente
+    verificarAlteraData();
+
+    // Listener para mudanças no localStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "clt400tt_parametros") {
+        verificarAlteraData();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
   const limparResultado = () => {
     setLinhas([]);
     setReferencia(null);
@@ -173,36 +211,22 @@ export default function Evento1015({
 
     try {
       const resultado = await consultarOSCompleta(data.num_os, tipoEvento);
-      setLinhas(resultado.linhas);
-      setReferencia(resultado.referencia);
 
-      // Processar número da carga se retornado pela API
-      if (resultado.numeroCarga) {
-        setData((prev) => ({
-          ...prev,
-          num_carga: resultado.numeroCarga!.toString(),
-        }));
-      }
-
-      // Processar informações de posto vindas da API
-      if (resultado.posto && resultado.descricaoPosto) {
-        setPostoApi(resultado.posto);
-        setDescricaoPostoApi(resultado.descricaoPosto);
-        setData((prev) => ({ ...prev, posto_trab: resultado.posto! }));
-        setPostosPossiveis([]);
-      } else if (
-        resultado.postosPossiveis &&
-        resultado.postosPossiveis.length > 0
+      // Verificar se há cargas prioritárias (apenas para evento 10)
+      if (
+        tipoEvento === 10 &&
+        resultado.cargasPrioritarias &&
+        resultado.cargasPrioritarias.trim()
       ) {
-        setPostosPossiveis(resultado.postosPossiveis);
-        setPostoApi(null);
-        setDescricaoPostoApi(null);
-      } else {
-        setPostoApi(null);
-        setDescricaoPostoApi(null);
-        setPostosPossiveis([]);
+        setPriorityCargas(resultado.cargasPrioritarias);
+        setPendingResult(resultado);
+        setShowPriorityModal(true);
+        setBuscando(false);
+        return;
       }
 
+      // Processar resultado normalmente se não há cargas prioritárias
+      processarResultadoOS(resultado);
       setOsEncontrada(resultado.linhas.length > 0);
 
       if (resultado.linhas.length === 0 && resultado.referencia) {
@@ -402,7 +426,7 @@ export default function Evento1015({
           evento: tipoEvento.toString(),
           posto: data.posto_trab.trim(),
           operador: data.operador.trim(),
-          data_hora: formatarDataHora(dataHoraCustomizada),
+          data_hora: formatarDataHora(),
           numero_os: (linha.numero_os ?? data.num_os ?? "").toString(),
           divisao: linha.divisao.toString(),
           numero_carga: parseInt(data.num_carga.trim()) || 0,
@@ -420,7 +444,7 @@ export default function Evento1015({
         evento: tipoEvento.toString(),
         posto: data.posto_trab.trim(),
         operador: data.operador.trim(),
-        data_hora: formatarDataHora(dataHoraCustomizada),
+        data_hora: formatarDataHora(),
         numero_os: data.num_os.trim() || "",
         divisao: "",
         numero_carga: parseInt(data.num_carga.trim()) || 0,
@@ -468,13 +492,30 @@ export default function Evento1015({
   };
 
   // Função para formatar data_hora conforme especificação
-  const formatarDataHora = (dataHoraCustomizada?: string) => {
-    if (!dataHoraCustomizada) {
+  const formatarDataHora = () => {
+    const dataHoraFinal = obterDataHoraParaEnvio();
+    if (!dataHoraFinal) {
       return "";
     }
 
     // Converter para formato dd/mm/yyyy hh:MM
-    const date = new Date(dataHoraCustomizada);
+    const date = new Date(dataHoraFinal);
+    const dia = String(date.getDate()).padStart(2, "0");
+    const mes = String(date.getMonth() + 1).padStart(2, "0");
+    const ano = date.getFullYear();
+    const horas = String(date.getHours()).padStart(2, "0");
+    const minutos = String(date.getMinutes()).padStart(2, "0");
+
+    return `${dia}/${mes}/${ano} ${horas}:${minutos}`;
+  };
+
+  // Função para formatar data/hora para exibição no botão
+  const formatarDataHoraExibicao = () => {
+    if (!horarioCustomizado.alterado || !horarioCustomizado.dataHora) {
+      return "";
+    }
+
+    const date = new Date(horarioCustomizado.dataHora);
     const dia = String(date.getDate()).padStart(2, "0");
     const mes = String(date.getMonth() + 1).padStart(2, "0");
     const ano = date.getFullYear();
@@ -625,8 +666,8 @@ export default function Evento1015({
                       setData({ ...data, num_os: e.target.value })
                     }
                     onKeyDown={(e) => e.key === "Enter" && handleConsultarOS()}
-                    disabled={data.num_carga.trim().length > 0}
-                    placeholder="Digite o número da OS (0000.00)"
+                    disabled={data.num_carga.trim().length > 0 || osEncontrada}
+                    placeholder="Digite o número da OS e divisão (0000.00)"
                   />
                   {buscando ? (
                     <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">
@@ -685,6 +726,9 @@ export default function Evento1015({
                       }
                     }}
                     placeholder="Selecione um posto"
+                    disabled={
+                      tipoEvento === 10 && !cargaEncontrada && !osEncontrada
+                    }
                   />
                 ) : (
                   /* Input normal sem busca */
@@ -701,7 +745,10 @@ export default function Evento1015({
                     placeholder={
                       postoApi ? "Posto definido pela API" : "Código do posto"
                     }
-                    disabled={!!postoApi}
+                    disabled={
+                      !!postoApi ||
+                      (tipoEvento === 10 && !cargaEncontrada && !osEncontrada)
+                    }
                   />
                 )}
 
@@ -729,7 +776,10 @@ export default function Evento1015({
                       handleConsultarOperador()
                     }
                     placeholder="Código do operador"
-                    disabled={!!nomeOperador}
+                    disabled={
+                      !!nomeOperador ||
+                      (tipoEvento === 10 && !cargaEncontrada && !osEncontrada)
+                    }
                   />
                   {buscandoOperador ? (
                     <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">
@@ -748,18 +798,21 @@ export default function Evento1015({
                     <button
                       type="button"
                       onClick={handleConsultarOperador}
-                      className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] cursor-pointer transition-colors shadow-sm"
-                      disabled={!data.operador.trim()}
+                      className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
+                      disabled={
+                        !data.operador.trim() ||
+                        (tipoEvento === 10 && !cargaEncontrada && !osEncontrada)
+                      }
                     >
                       <Search size={18} />
                     </button>
                   )}
                 </div>
-                <div className="mt-2 text-sm min-h-6">
+                {/* <div className="mt-2 text-sm min-h-6">
                   {erroOperador && !buscandoOperador && (
                     <span className="text-red-600">{erroOperador}</span>
                   )}
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
@@ -903,32 +956,62 @@ export default function Evento1015({
         )}
       </div>
 
-      <div className="flex flex-row justify-end gap-3 pt-4 border-t border-gray-200 md:justify-end">
-        <button
-          onClick={handleCancelar}
-          className="flex-1 md:flex-none px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors font-medium"
-          type="button"
-        >
-          Cancelar
-        </button>
-        <button
-          onClick={handleSalvar}
-          className={`flex-1 md:flex-none text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm`}
-          style={{ backgroundColor: "#3C787A" }}
-          disabled={salvando}
-          title={
-            quantidadesAlteradas.size > 0
-              ? `Há ${quantidadesAlteradas.size} quantidade(s) alterada(s) para salvar`
-              : "Salvar evento"
-          }
-        >
-          <Save size={16} />
-          {salvando
-            ? "Salvando..."
-            : quantidadesAlteradas.size > 0
-            ? `Salvar (${quantidadesAlteradas.size} alterações)`
-            : "Salvar"}
-        </button>
+      {/* Seção de botões */}
+      <div className="pt-4 border-t border-gray-200">
+        {/* Todos os botões na mesma linha */}
+        <div className="flex flex-row justify-between items-center gap-3">
+          {/* Botão de ajustar horário - à esquerda */}
+          {alteraData ? (
+            <button
+              onClick={() => setShowHorarioModal(true)}
+              className={`px-4 md:px-6 py-2 border rounded-lg font-medium hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-center whitespace-nowrap text-sm md:text-base ${
+                horarioCustomizado.alterado
+                  ? "bg-amber-50 border-amber-300 text-amber-700"
+                  : "bg-white border-gray-300 text-gray-700"
+              }`}
+              type="button"
+            >
+              <Clock className="w-4 h-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">
+                {horarioCustomizado.alterado && formatarDataHoraExibicao()
+                  ? formatarDataHoraExibicao()
+                  : "Ajustar Horário"}
+              </span>
+              <span className="sm:hidden">Horário</span>
+            </button>
+          ) : (
+            <div></div>
+          )}
+
+          {/* Botões cancelar e salvar */}
+          <div className="flex flex-row gap-3">
+            <button
+              onClick={handleCancelar}
+              className="flex-1 md:flex-none px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors font-medium"
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSalvar}
+              className={`flex-1 md:flex-none text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm`}
+              style={{ backgroundColor: "#3C787A" }}
+              disabled={salvando}
+              title={
+                quantidadesAlteradas.size > 0
+                  ? `Há ${quantidadesAlteradas.size} quantidade(s) alterada(s) para salvar`
+                  : "Salvar evento"
+              }
+            >
+              <Save size={16} />
+              {salvando
+                ? "Salvando..."
+                : quantidadesAlteradas.size > 0
+                ? `Salvar (${quantidadesAlteradas.size} alterações)`
+                : "Salvar"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Modal de Cargas Prioritárias */}
@@ -978,6 +1061,18 @@ export default function Evento1015({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Ajustar Horário */}
+      {showHorarioModal && (
+        <AjustarHorarioModal
+          onClose={() => setShowHorarioModal(false)}
+          onConfirm={(dataHora) => {
+            ajustarHorario(dataHora);
+            setShowHorarioModal(false);
+          }}
+          dataHoraAtual={horarioCustomizado.dataHora}
+        />
       )}
     </div>
   );
