@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Save, Search } from "lucide-react";
+import { Save, Search, Trash2 } from "lucide-react";
 import {
   useBuscaOSEvento13,
   useSalvarEvento,
@@ -31,6 +31,7 @@ export default function Evento13({
   });
 
   const [quantidadeHabilitada, setQuantidadeHabilitada] = useState(false);
+  const [osEncontrada, setOsEncontrada] = useState(false);
 
   const {
     osInfo,
@@ -39,6 +40,7 @@ export default function Evento13({
     buscandoOS,
     consultarOS,
     setReferencia,
+    limparBuscaOS,
   } = useBuscaOSEvento13();
 
   const { salvando, salvarEvento } = useSalvarEvento();
@@ -48,7 +50,18 @@ export default function Evento13({
 
   const limparCampos = () => {
     setQuantidadeHabilitada(false);
+    setOsEncontrada(false);
     setData((prev) => ({ ...prev, quantidade: "" }));
+  };
+
+  const handleLimparTudo = () => {
+    setData({
+      num_os: "",
+      quantidade: "",
+    });
+    setQuantidadeHabilitada(false);
+    setOsEncontrada(false);
+    limparBuscaOS();
   };
 
   const handleConsultarOS = useCallback(async () => {
@@ -64,9 +77,11 @@ export default function Evento13({
 
     if (resultado) {
       setQuantidadeHabilitada(true);
+      setOsEncontrada(true);
     } else {
       // Se não encontrou ou saldo zerado, limpar o campo OS
       setData((prev) => ({ ...prev, num_os: "" }));
+      setOsEncontrada(false);
     }
   }, [data.num_os, consultarOS]);
 
@@ -80,21 +95,6 @@ export default function Evento13({
       }, 0);
     }
   }, [osSelecionada, referencia, setReferencia, handleConsultarOS]);
-
-  const handleQuantidadeChange = (value: string) => {
-    if (!osInfo) return;
-
-    const quantidade = parseFloat(value);
-
-    if (
-      value === "" ||
-      (!isNaN(quantidade) &&
-        quantidade > 0 &&
-        quantidade <= osInfo.saldo_divisoes)
-    ) {
-      setData((prev) => ({ ...prev, quantidade: value }));
-    }
-  };
 
   const handleSalvar = async () => {
     const erros: string[] = [];
@@ -111,10 +111,6 @@ export default function Evento13({
       const quantidade = parseFloat(data.quantidade);
       if (isNaN(quantidade) || quantidade <= 0) {
         erros.push("A quantidade deve ser um número maior que zero.");
-      } else if (osInfo && quantidade > osInfo.saldo_divisoes) {
-        erros.push(
-          `A quantidade não pode ser maior que o saldo disponível (${osInfo.saldo_divisoes}).`
-        );
       }
     }
 
@@ -127,9 +123,10 @@ export default function Evento13({
 
     const payload = {
       evento: "13",
-      numero_os: data.num_os,
-      divisao: osInfo!.ultima_divisao.toString(),
-      ...(dataHoraCustomizada && { data_hora: dataHoraCustomizada }),
+      numero_os: parseInt(data.num_os),
+      divisao: osInfo?.proxima_divisao || 0,
+      qtde_divisao: parseFloat(data.quantidade),
+      data_hora: dataHoraCustomizada || "",
     };
 
     await salvarEvento(payload, titulo, dataHoraCustomizada);
@@ -161,123 +158,125 @@ export default function Evento13({
               Busca de Dados
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                  Número da OS <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
-                    value={data.num_os}
-                    onChange={(e) =>
-                      setData({ ...data, num_os: e.target.value })
-                    }
-                    onKeyDown={(e) => e.key === "Enter" && handleConsultarOS()}
-                    placeholder="Digite somente o número da OS"
-                  />
-                  {buscandoOS ? (
-                    <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleConsultarOS}
-                      className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
-                      disabled={!data.num_os.trim()}
-                    >
-                      <Search size={18} />
-                    </button>
-                  )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+              <div className="md:col-span-2">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    Número da OS <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      className="border border-gray-300 px-3 py-2 rounded-lg flex-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
+                      value={data.num_os}
+                      onChange={(e) =>
+                        setData({ ...data, num_os: e.target.value })
+                      }
+                      onKeyDown={(e) =>
+                        e.key === "Enter" &&
+                        !osEncontrada &&
+                        handleConsultarOS()
+                      }
+                      placeholder="Digite somente o número da OS"
+                      disabled={osEncontrada}
+                    />
+                    {buscandoOS ? (
+                      <div className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : osEncontrada ? (
+                      <button
+                        type="button"
+                        onClick={handleLimparTudo}
+                        className="h-10 w-12 rounded-lg bg-orange-400 text-white flex items-center justify-center hover:bg-orange-500 cursor-pointer transition-colors shadow-sm"
+                        title="Limpar pesquisa"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleConsultarOS}
+                        className="h-10 w-12 rounded-lg bg-[#3C787A] text-white flex items-center justify-center hover:bg-[#2d5c5e] disabled:opacity-50 cursor-pointer transition-colors shadow-sm"
+                        disabled={!data.num_os.trim()}
+                      >
+                        <Search size={18} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-2 text-sm min-h-6">
+                    {erroBuscaOS && (
+                      <span className="text-red-600">{erroBuscaOS}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-2 text-sm min-h-6">
-                  {erroBuscaOS && (
-                    <span className="text-red-600">{erroBuscaOS}</span>
-                  )}
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    Quantidade <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
+                    value={data.quantidade}
+                    onChange={(e) =>
+                      setData({ ...data, quantidade: e.target.value })
+                    }
+                    disabled={!quantidadeHabilitada}
+                    placeholder={
+                      quantidadeHabilitada
+                        ? "Digite a quantidade"
+                        : "Primeiro busque uma OS"
+                    }
+                    min="0"
+                    step="0.01"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700">
-                  Quantidade <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  className="border border-gray-300 px-3 py-2 rounded-lg w-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 transition-colors"
-                  value={data.quantidade}
-                  onChange={(e) => handleQuantidadeChange(e.target.value)}
-                  disabled={!quantidadeHabilitada}
-                  placeholder={
-                    quantidadeHabilitada
-                      ? "Digite a quantidade"
-                      : "Primeiro busque uma OS"
-                  }
-                  min="0"
-                  max={osInfo?.saldo_divisoes || undefined}
-                  step="0.01"
-                />
-                <div className="mt-2 text-sm min-h-6">
-                  {osInfo && (
-                    <span className="text-gray-500">
-                      Máximo permitido: {osInfo.saldo_divisoes}
-                    </span>
+              {/* Painel do Saldo Divisão */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm w-full h-full flex flex-col">
+                {/* Título Fixo */}
+                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                  <div className="text-sm font-semibold text-gray-700 text-center">
+                    Saldo Divisão
+                  </div>
+                </div>
+
+                {/* Conteúdo Dinâmico */}
+                <div className="flex-1 flex items-center justify-center px-4 py-4">
+                  {buscandoOS ? (
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-2 border-[#3C787A] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                      <div className="text-sm text-gray-500">
+                        Consultando...
+                      </div>
+                    </div>
+                  ) : osInfo ? (
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-[#3C787A] mb-1">
+                        {osInfo.saldo_divisoes}
+                      </div>
+                      <div className="text-xs text-gray-500 font-medium">
+                        {osInfo.saldo_divisoes === 1 ? "unidade" : "unidades"}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="w-8 h-8 mx-auto mb-3 text-gray-300">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        Aguardando consulta
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Informações da OS */}
-          {osInfo && (
-            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Informações da OS
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <span className="block text-sm font-semibold text-gray-700">
-                    Número:
-                  </span>
-                  <span className="text-gray-800 font-medium">
-                    {osInfo.numero_os}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-sm font-semibold text-gray-700">
-                    Quantidade Total:
-                  </span>
-                  <span className="text-gray-800 font-medium">
-                    {osInfo.quantidade_os}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-sm font-semibold text-gray-700">
-                    Próxima Divisão:
-                  </span>
-                  <span className="text-gray-800 font-medium">
-                    {osInfo.ultima_divisao}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-sm font-semibold text-gray-700">
-                    Saldo Disponível:
-                  </span>
-                  <span className="text-[#3C787A] font-medium">
-                    {osInfo.saldo_divisoes}
-                  </span>
-                </div>
-              </div>
-              {referencia && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <span className="text-xs font-semibold text-white bg-[#3C787A] px-3 py-1 rounded-full">
-                    {referencia}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

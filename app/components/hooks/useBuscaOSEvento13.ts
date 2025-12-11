@@ -7,6 +7,7 @@ type OSEvento13Response = {
   numero_os: number;
   quantidade_os: number;
   ultima_divisao: number;
+  proxima_divisao: number;
   saldo_divisoes: number;
 };
 

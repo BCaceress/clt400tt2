@@ -2,14 +2,13 @@ import { useState } from "react";
 import { apiService } from "../../services/api";
 import { notifySuccess, notifyError } from "../NotificationsProvider";
 import { useApiError } from "./useApiError";
-import { useDateTime } from "./useDateTime";
 
 /**
  * Tipo para o payload de salvamento de eventos
  */
 type EventoPayload = {
   // Formato antigo (mantido para compatibilidade)
-  numero_os?: string;
+  numero_os?: string | number;
   numero_carga?: number;
   codigo_servico?: string;
   codigo_pessoa?: string;
@@ -23,7 +22,7 @@ type EventoPayload = {
   posto?: string;
   operador?: string;
   data_hora?: string;
-  divisao?: string;
+  divisao?: string | number;
 
   [key: string]: string | number | undefined;
 };
@@ -34,7 +33,6 @@ type EventoPayload = {
 export const useSalvarEvento = () => {
   const [salvando, setSalvando] = useState(false);
   const { getApiErrorMessage } = useApiError();
-  const { formatarDataHoraAtual } = useDateTime();
 
   const salvarEvento = async (
     payload: EventoPayload,
@@ -46,10 +44,6 @@ export const useSalvarEvento = () => {
     try {
       const payloadComData = {
         ...payload,
-        // Só adicionar data_hora_coletor se data_hora não estiver presente
-        ...(payload.data_hora
-          ? {}
-          : { data_hora_coletor: formatarDataHoraAtual() }),
         ...(dataHoraCustomizada && { data_hora: dataHoraCustomizada }),
       };
 
