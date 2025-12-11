@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Search } from "lucide-react";
+import { X, Search, FileSearch } from "lucide-react";
 import type {
   DivisaoOS,
   OrdemServico,
@@ -88,11 +88,16 @@ export default function ConsultaOSModal({ onClose }: ConsultaOSModalProps) {
         }`}
       >
         <div className="flex items-center justify-between bg-[#3C787A] px-6 py-4">
-          <h2 className="text-lg font-bold text-white">
-            {resultado
-              ? `Consulta de OS - ${resultado.numero_os}`
-              : "Consultar OS"}
-          </h2>
+          <div className="flex items-center gap-3">
+            <div className="bg-yellow-400 p-2 rounded-lg">
+              <FileSearch className="w-5 h-5 text-black" />
+            </div>
+            <h2 className="text-lg font-bold text-white">
+              {resultado
+                ? `Consulta de OS - ${resultado.numero_os}`
+                : "Consultar OS"}
+            </h2>
+          </div>
           <button
             onClick={limparEFechar}
             className="p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"

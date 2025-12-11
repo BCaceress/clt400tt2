@@ -1,14 +1,15 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ComponentType } from "react";
 import Image from "next/image";
-import { ChevronDown, Search, FileSearch } from "lucide-react";
+import { ChevronDown, Search, FileSearch, Clock } from "lucide-react";
 import ConsultaOSModal from "./components/ConsultaOSModal";
+import AjustarHorarioModal from "./components/AjustarHorarioModal";
 import { notifyError, notifyInfo } from "./components/NotificationsProvider";
 import { EVENTO_COMPONENTS, type EventoProps } from "./eventos";
 import type { OrdemServico } from "./types/os";
-import { useParametros } from "./components/hooks";
+import { useParametros, useHorarioCustomizado } from "./components/hooks";
 
 const OPCOES_EVENTO = [
   { valor: "10", label: "10 - Início de Produção" },
@@ -37,12 +38,47 @@ export default function Page() {
   const [codigoEvento, setCodigoEvento] = useState("");
   const [eventoValido, setEventoValido] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showHorarioModal, setShowHorarioModal] = useState(false);
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
+  const [alteraData, setAlteraData] = useState<boolean>(false);
 
   const [listaAberta, setListaAberta] = useState(false);
 
   // Hook para gerenciar parâmetros da empresa
   const { parametros, loading: loadingParametros } = useParametros();
+
+  // Hook para gerenciar horário customizado
+  const { horarioCustomizado, ajustarHorario, obterDataHoraParaEnvio } =
+    useHorarioCustomizado();
+
+  // Monitora mudanças no localStorage para altera_data
+  useEffect(() => {
+    const verificarAlteraData = () => {
+      try {
+        const parametrosStorage = localStorage.getItem("clt400tt_parametros");
+        if (parametrosStorage) {
+          const parametros = JSON.parse(parametrosStorage);
+          setAlteraData(!!parametros.altera_data);
+        }
+      } catch (error) {
+        console.error("Erro ao ler parâmetros do localStorage:", error);
+        setAlteraData(false);
+      }
+    };
+
+    // Verifica inicialmente
+    verificarAlteraData();
+
+    // Listener para mudanças no localStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "clt400tt_parametros") {
+        verificarAlteraData();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const codigoEventoNumero = Number(
     codigoEvento.match(/^\d+/)?.[0] ?? Number.NaN
@@ -153,7 +189,7 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Seção da empresa e botão consultar OS */}
+            {/* Seção da empresa e botões */}
             <div className="flex flex-col xl:flex-col xl:items-end gap-4 xl:gap-4">
               <div className="text-right xl:text-right space-y-1">
                 <p className="text-xs uppercase tracking-wider opacity-70 font-medium">
@@ -165,14 +201,32 @@ export default function Page() {
                     : parametros?.nome_empresa || "Empresa não definida"}
                 </p>
               </div>
-              <button
-                onClick={() => setShowModal(true)}
-                className="px-6 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 whitespace-nowrap shadow-lg cursor-pointer"
-                type="button"
-              >
-                <FileSearch className="w-4 h-4 inline mr-2" />
-                Consultar OS
-              </button>
+              <div className="flex flex-row gap-3">
+                {alteraData && (
+                  <button
+                    onClick={() => setShowHorarioModal(true)}
+                    className={`px-6 py-3 backdrop-blur border rounded-xl font-semibold hover:scale-105 focus:outline-none focus:ring-2 transition-all duration-200 whitespace-nowrap shadow-lg cursor-pointer ${
+                      horarioCustomizado.alterado
+                        ? "bg-amber-500/20 border-amber-300/50 hover:bg-amber-500/30 focus:ring-amber-400/60 text-amber-100"
+                        : "bg-white/20 border-white/30 hover:bg-white/30 focus:ring-white/60"
+                    }`}
+                    type="button"
+                  >
+                    <Clock className="w-4 h-4 inline mr-2" />
+                    {horarioCustomizado.alterado
+                      ? "Horário Ajustado"
+                      : "Ajustar Horário"}
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="px-6 py-3 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 whitespace-nowrap shadow-lg cursor-pointer"
+                  type="button"
+                >
+                  <FileSearch className="w-4 h-4 inline mr-2" />
+                  Consultar OS
+                </button>
+              </div>
             </div>
           </div>
 
@@ -231,9 +285,28 @@ export default function Page() {
                   <span className="sr-only">Carregar</span>
                 </button>
 
+                {alteraData && (
+                  <button
+                    onClick={() => setShowHorarioModal(true)}
+                    className={`h-12 w-12 backdrop-blur border rounded-xl font-semibold hover:scale-105 focus:outline-none focus:ring-2 transition-all duration-200 flex items-center justify-center shadow-lg ${
+                      horarioCustomizado.alterado
+                        ? "bg-amber-500/20 border-amber-300/50 hover:bg-amber-500/30 focus:ring-amber-400/60"
+                        : "bg-white/20 border-white/30 hover:bg-white/30 focus:ring-white/60"
+                    }`}
+                    type="button"
+                  >
+                    <Clock className="w-5 h-5" />
+                    <span className="sr-only">
+                      {horarioCustomizado.alterado
+                        ? "Horário Ajustado"
+                        : "Ajustar Horário"}
+                    </span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => setShowModal(true)}
-                  className="h-12 w-20 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 flex items-center justify-center shadow-lg"
+                  className="h-12 w-12 bg-white/20 backdrop-blur border border-white/30 rounded-xl font-semibold hover:bg-white/30 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200 flex items-center justify-center shadow-lg"
                   type="button"
                 >
                   <FileSearch className="w-5 h-5" />
@@ -275,6 +348,7 @@ export default function Page() {
                 key={`${codigoEvento}-${osSelecionada?.numero ?? "sem-os"}`}
                 onConsultarOS={() => setShowModal(true)}
                 osSelecionada={osSelecionada}
+                dataHoraCustomizada={obterDataHoraParaEnvio()}
               />
             </div>
           ) : (
@@ -325,6 +399,17 @@ export default function Page() {
               setOsSelecionada(os);
               setShowModal(false);
             }}
+          />
+        )}
+
+        {showHorarioModal && (
+          <AjustarHorarioModal
+            onClose={() => setShowHorarioModal(false)}
+            onConfirm={(dataHora) => {
+              ajustarHorario(dataHora);
+              setShowHorarioModal(false);
+            }}
+            dataHoraAtual={horarioCustomizado.dataHora}
           />
         )}
       </div>

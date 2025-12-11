@@ -7,6 +7,7 @@ import Evento19 from "./Evento19";
 export interface EventoProps {
   onConsultarOS: () => void;
   osSelecionada: OrdemServico | null;
+  dataHoraCustomizada?: string;
 }
 
 // Wrappers para os eventos 10 e 15

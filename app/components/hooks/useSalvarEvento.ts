@@ -8,6 +8,7 @@ import { useDateTime } from "./useDateTime";
  * Tipo para o payload de salvamento de eventos
  */
 type EventoPayload = {
+  // Formato antigo (mantido para compatibilidade)
   numero_os?: string;
   numero_carga?: number;
   codigo_servico?: string;
@@ -15,7 +16,15 @@ type EventoPayload = {
   codigo_instrumento?: string;
   codigo_forno?: string;
   resultado?: string;
-  tipo_lcto: string;
+  tipo_lcto?: string;
+
+  // Formato novo
+  evento?: string;
+  posto?: string;
+  operador?: string;
+  data_hora?: string;
+  divisao?: string;
+
   [key: string]: string | number | undefined;
 };
 
@@ -27,13 +36,21 @@ export const useSalvarEvento = () => {
   const { getApiErrorMessage } = useApiError();
   const { formatarDataHoraAtual } = useDateTime();
 
-  const salvarEvento = async (payload: EventoPayload, titulo: string) => {
+  const salvarEvento = async (
+    payload: EventoPayload,
+    titulo: string,
+    dataHoraCustomizada?: string
+  ) => {
     setSalvando(true);
 
     try {
       const payloadComData = {
         ...payload,
-        data_hora_coletor: formatarDataHoraAtual(),
+        // Só adicionar data_hora_coletor se data_hora não estiver presente
+        ...(payload.data_hora
+          ? {}
+          : { data_hora_coletor: formatarDataHoraAtual() }),
+        ...(dataHoraCustomizada && { data_hora: dataHoraCustomizada }),
       };
 
       const response = (await apiService.post(

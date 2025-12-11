@@ -16,6 +16,7 @@ import type { OrdemServico } from "../types/os";
 interface Evento19Props {
   onConsultarOS: () => void;
   osSelecionada: OrdemServico | null;
+  dataHoraCustomizada?: string;
 }
 
 type Evento19Form = {
@@ -26,7 +27,10 @@ type Evento19Form = {
   resultado: string;
 };
 
-export default function Evento19({ osSelecionada }: Evento19Props) {
+export default function Evento19({
+  osSelecionada,
+  dataHoraCustomizada,
+}: Evento19Props) {
   const [data, setData] = useState<Evento19Form>({
     num_os: osSelecionada?.numero ?? "",
     servico: "",
@@ -131,7 +135,7 @@ export default function Evento19({ osSelecionada }: Evento19Props) {
       tipo_lcto: "19",
     };
 
-    await salvarEvento(payload, titulo);
+    await salvarEvento(payload, titulo, dataHoraCustomizada);
   };
 
   const handleCancelar = () => {

@@ -11,3 +11,4 @@ export { useBuscaPosto } from "./useBuscaPosto";
 export { useBuscaCarga } from "./useBuscaCarga";
 export { useSalvarEvento } from "./useSalvarEvento";
 export { useParametros } from "./useParametros";
+export { useHorarioCustomizado } from "./useHorarioCustomizado";

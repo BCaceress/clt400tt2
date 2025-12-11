@@ -19,6 +19,7 @@ interface Evento1015Props {
   tipoEvento: TipoEvento;
   onConsultarOS: () => void;
   osSelecionada: OrdemServico | null;
+  dataHoraCustomizada?: string;
 }
 
 type EventoForm = {
@@ -52,6 +53,7 @@ type ApiResult = {
 export default function Evento1015({
   tipoEvento,
   osSelecionada,
+  dataHoraCustomizada,
 }: Evento1015Props) {
   const [data, setData] = useState<EventoForm>({
     num_carga: "",
@@ -80,6 +82,11 @@ export default function Evento1015({
   const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
   const [tempQuantidade, setTempQuantidade] = useState<string>("");
 
+  // Estado para armazenar quantidades alteradas em memória
+  const [quantidadesAlteradas, setQuantidadesAlteradas] = useState<
+    Map<string, number>
+  >(new Map());
+
   // Estados para controlar se as buscas foram realizadas
   const [cargaEncontrada, setCargaEncontrada] = useState(false);
   const [osEncontrada, setOsEncontrada] = useState(false);
@@ -106,6 +113,7 @@ export default function Evento1015({
     setPostoApi(null);
     setDescricaoPostoApi(null);
     setPostosPossiveis([]);
+    setQuantidadesAlteradas(new Map());
     setCargaEncontrada(false);
     setOsEncontrada(false);
   };
@@ -122,8 +130,12 @@ export default function Evento1015({
     try {
       const resultado = await consultarCarga(data.num_carga);
 
-      // Verificar se há cargas prioritárias
-      if (resultado.cargasPrioritarias && resultado.cargasPrioritarias.trim()) {
+      // Verificar se há cargas prioritárias (apenas para evento 10)
+      if (
+        tipoEvento === 10 &&
+        resultado.cargasPrioritarias &&
+        resultado.cargasPrioritarias.trim()
+      ) {
         setPriorityCargas(resultado.cargasPrioritarias);
         setPendingResult(resultado);
         setShowPriorityModal(true);
@@ -221,6 +233,7 @@ export default function Evento1015({
     });
     limparOperador();
     limparResultado();
+    setQuantidadesAlteradas(new Map());
     setCargaEncontrada(false);
     setOsEncontrada(false);
   };
@@ -329,13 +342,13 @@ export default function Evento1015({
       erros.push("É necessário informar o número da carga ou da OS.");
     }
 
-    if (data.num_carga.trim() && linhas.length === 0) {
+    if (tipoEvento === 10 && data.num_carga.trim() && linhas.length === 0) {
       erros.push(
         "É necessário pesquisar e encontrar dados válidos para a carga."
       );
     }
 
-    if (data.num_os.trim() && linhas.length === 0) {
+    if (tipoEvento === 10 && data.num_os.trim() && linhas.length === 0) {
       erros.push("É necessário pesquisar e encontrar dados válidos para a OS.");
     }
 
@@ -367,37 +380,77 @@ export default function Evento1015({
     }
 
     if (erros.length > 0) {
-      notifyError("Erro(s) de validação:\\n\\n" + erros.join("\\n"), {
+      notifyError("Erro(s) de validação:\n" + erros.join("\\n"), {
         style: { whiteSpace: "pre-line" },
       });
       return;
     }
 
-    const payload = {
-      numero_carga: parseInt(data.num_carga.trim()) || 0,
-      numero_os: data.num_os.trim(),
-      codigo_pessoa: data.operador.trim(),
-      codigo_forno: data.posto_trab.trim(),
-      tipo_lcto: tipoEvento.toString(),
-    };
+    // Primeiro, enviar PATCH para /divisao se houver quantidades alteradas
+    const patchSucesso = await enviarPatchDivisao();
+    if (!patchSucesso) {
+      return; // Se o PATCH falhou, não continua
+    }
 
-    await salvarEvento(payload, titulo);
+    // Enviar um lançamento para cada divisão
+    let sucessoSalvar = true;
+
+    if (linhas.length > 0) {
+      // Há divisões específicas, enviar uma para cada
+      for (const linha of linhas) {
+        const payload = {
+          evento: tipoEvento.toString(),
+          posto: data.posto_trab.trim(),
+          operador: data.operador.trim(),
+          data_hora: formatarDataHora(dataHoraCustomizada),
+          numero_os: (linha.numero_os ?? data.num_os ?? "").toString(),
+          divisao: linha.divisao.toString(),
+          numero_carga: parseInt(data.num_carga.trim()) || 0,
+        };
+
+        const resultado = await salvarEvento(payload, titulo);
+        if (!resultado) {
+          sucessoSalvar = false;
+          break;
+        }
+      }
+    } else {
+      // Sem divisões específicas, enviar lançamento geral
+      const payload = {
+        evento: tipoEvento.toString(),
+        posto: data.posto_trab.trim(),
+        operador: data.operador.trim(),
+        data_hora: formatarDataHora(dataHoraCustomizada),
+        numero_os: data.num_os.trim() || "",
+        divisao: "",
+        numero_carga: parseInt(data.num_carga.trim()) || 0,
+      };
+
+      sucessoSalvar = await salvarEvento(payload, titulo);
+    }
+
+    // Limpar quantidades alteradas após salvar com sucesso
+    if (sucessoSalvar) {
+      setQuantidadesAlteradas(new Map());
+    }
   };
 
   const handleEditarQuantidade = (index: number) => {
     setEditingRowIndex(index);
-    setTempQuantidade(linhas[index].quantidade.toString());
+    const quantidadeAtual = obterQuantidadeAtual(linhas[index]);
+    setTempQuantidade(quantidadeAtual.toString());
   };
 
   const handleSalvarEdicao = (index: number) => {
     const novaQuantidade = parseInt(tempQuantidade);
     if (!isNaN(novaQuantidade) && novaQuantidade > 0) {
-      const novasLinhas = [...linhas];
-      novasLinhas[index] = {
-        ...novasLinhas[index],
-        quantidade: novaQuantidade,
-      };
-      setLinhas(novasLinhas);
+      const linha = linhas[index];
+      const chave = `${linha.numero_os ?? data.num_os ?? ""}-${linha.divisao}`;
+
+      // Salvar a alteração em memória
+      const novasQuantidadesAlteradas = new Map(quantidadesAlteradas);
+      novasQuantidadesAlteradas.set(chave, novaQuantidade);
+      setQuantidadesAlteradas(novasQuantidadesAlteradas);
     }
     setEditingRowIndex(null);
     setTempQuantidade("");
@@ -408,10 +461,80 @@ export default function Evento1015({
     setTempQuantidade("");
   };
 
+  // Função para obter a quantidade atual de uma linha (alterada ou original)
+  const obterQuantidadeAtual = (linha: LinhaResultado) => {
+    const chave = `${linha.numero_os ?? data.num_os ?? ""}-${linha.divisao}`;
+    return quantidadesAlteradas.get(chave) ?? linha.quantidade;
+  };
+
+  // Função para formatar data_hora conforme especificação
+  const formatarDataHora = (dataHoraCustomizada?: string) => {
+    if (!dataHoraCustomizada) {
+      return "";
+    }
+
+    // Converter para formato dd/mm/yyyy hh:MM
+    const date = new Date(dataHoraCustomizada);
+    const dia = String(date.getDate()).padStart(2, "0");
+    const mes = String(date.getMonth() + 1).padStart(2, "0");
+    const ano = date.getFullYear();
+    const horas = String(date.getHours()).padStart(2, "0");
+    const minutos = String(date.getMinutes()).padStart(2, "0");
+
+    return `${dia}/${mes}/${ano} ${horas}:${minutos}`;
+  };
+
+  // Função para enviar PATCH com as quantidades alteradas
+  const enviarPatchDivisao = async () => {
+    if (quantidadesAlteradas.size === 0) {
+      return true; // Nenhuma alteração para enviar
+    }
+
+    try {
+      const payload = Array.from(quantidadesAlteradas.entries()).map(
+        ([chave, quantidade]) => {
+          const [numeroOS, divisao] = chave.split("-");
+          return {
+            numero_os: parseInt(numeroOS) || 0,
+            divisao: parseInt(divisao) || 0,
+            quantidade: quantidade,
+          };
+        }
+      );
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081"}/divisao`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      // Verificar se o status é 200 (sucesso)
+      if (response.status === 200) {
+        return true;
+      } else {
+        console.error("PATCH /divisao retornou status:", response.status);
+        notifyError(
+          `Erro ao atualizar quantidades das divisões. Status: ${response.status}`
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error("Erro ao enviar PATCH /divisao:", error);
+      notifyError("Erro ao atualizar quantidades das divisões.");
+      return false;
+    }
+  };
+
   const handleCancelar = () => {
     handleLimparTudo();
     setEditingRowIndex(null);
     setTempQuantidade("");
+    setQuantidadesAlteradas(new Map());
     cancelarERedirecionarParaHome();
   };
 
@@ -424,9 +547,15 @@ export default function Evento1015({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div
+        className={`grid grid-cols-1 ${
+          tipoEvento === 10 ? "xl:grid-cols-3" : ""
+        } gap-6`}
+      >
         {/* Seção de Busca */}
-        <div className="xl:col-span-2 space-y-6">
+        <div
+          className={`${tipoEvento === 10 ? "xl:col-span-2" : ""} space-y-6`}
+        >
           <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               Busca de Dados
@@ -448,7 +577,7 @@ export default function Evento1015({
                     onKeyDown={(e) =>
                       e.key === "Enter" && handleConsultarCarga()
                     }
-                    disabled={data.num_os.trim().length > 0}
+                    disabled={data.num_os.trim().length > 0 || cargaEncontrada}
                     placeholder="Digite o número da carga"
                   />
                   {buscandoCarga ? (
@@ -636,128 +765,142 @@ export default function Evento1015({
           </div>
         </div>
 
-        {/* Seção de Resultados */}
-        <div className="xl:col-span-1">
-          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm h-full">
-            <div className="mb-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Resultados
-                  </h3>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Pesquise por carga ou OS para visualizar os dados
-                  </p>
-                </div>
-                {referencia && (
-                  <span className="text-xs font-semibold text-white bg-[#3C787A] px-3 py-1 rounded-full whitespace-nowrap inline-block">
-                    <span className="lg:hidden">
-                      {referencia.replace(/^(CARGA|Carga|carga)\s*/i, "")}
-                    </span>
-                    <span className="hidden lg:inline">{referencia}</span>
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {erroBusca && (
-              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
-                {erroBusca}
-              </div>
-            )}
-
-            {buscando ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-center">
-                  <div className="w-8 h-8 border-4 border-[#3C787A] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                  <p className="text-sm text-gray-700">
-                    Buscando informações...
-                  </p>
-                </div>
-              </div>
-            ) : linhas.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm text-left text-gray-800 border border-gray-200 rounded-lg overflow-hidden">
-                  <thead className="bg-gray-50 text-gray-700">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider border-b border-r border-gray-200">
-                        OS
-                      </th>
-                      <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider border-b border-r border-gray-200">
-                        Divisão
-                      </th>
-                      <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider border-b border-gray-200 text-right">
-                        Quantidade
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    {linhas.map((linha, index) => (
-                      <tr
-                        key={`${linha.numero_os ?? "os"}-${linha.divisao}`}
-                        className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                      >
-                        <td className="px-4 py-3 border-b border-r border-gray-200">
-                          {linha.numero_os ??
-                            (data.num_os ||
-                              (referencia?.startsWith("OS ")
-                                ? referencia.replace("OS ", "")
-                                : ""))}
-                        </td>
-                        <td className="px-4 py-3 border-b border-r border-gray-200">
-                          {linha.divisao}
-                        </td>
-                        <td className="px-4 py-3 border-b border-gray-200 text-right font-medium">
-                          {editingRowIndex === index ? (
-                            <input
-                              type="number"
-                              value={tempQuantidade}
-                              onChange={(e) =>
-                                setTempQuantidade(e.target.value)
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  handleSalvarEdicao(index);
-                                } else if (e.key === "Escape") {
-                                  handleCancelarEdicao();
-                                }
-                              }}
-                              onBlur={() => handleSalvarEdicao(index)}
-                              className="w-full text-right border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent bg-white"
-                              autoFocus
-                              min="1"
-                            />
-                          ) : (
-                            <span
-                              onClick={() => handleEditarQuantidade(index)}
-                              className="cursor-pointer hover:bg-blue-50 hover:text-blue-700 px-2 py-1 rounded transition-colors inline-block w-full"
-                              title="Clique para editar"
-                            >
-                              {linha.quantidade.toLocaleString()}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-center text-gray-500">
-                  <div className="w-16 h-16 mx-auto mb-4 opacity-20">
-                    <Search className="w-full h-full" />
+        {/* Seção de Resultados - Apenas para evento 10 */}
+        {tipoEvento === 10 && (
+          <div className="xl:col-span-1">
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm h-full">
+              <div className="mb-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      Resultados
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Pesquise por carga ou OS para visualizar os dados
+                    </p>
                   </div>
-                  <p className="text-sm">
-                    Nenhum resultado para exibir.
-                    <br />
-                    Pesquise por carga ou OS.
-                  </p>
+                  {referencia && (
+                    <span className="text-xs font-semibold text-white bg-[#3C787A] px-3 py-1 rounded-full whitespace-nowrap inline-block">
+                      <span className="lg:hidden">
+                        {referencia.replace(/^(CARGA|Carga|carga)\s*/i, "")}
+                      </span>
+                      <span className="hidden lg:inline">{referencia}</span>
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
+
+              {erroBusca && (
+                <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
+                  {erroBusca}
+                </div>
+              )}
+
+              {buscando ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="w-8 h-8 border-4 border-[#3C787A] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-sm text-gray-700">
+                      Buscando informações...
+                    </p>
+                  </div>
+                </div>
+              ) : linhas.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm text-left text-gray-800 border border-gray-200 rounded-lg overflow-hidden">
+                    <thead className="bg-gray-50 text-gray-700">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider border-b border-r border-gray-200">
+                          OS
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider border-b border-r border-gray-200">
+                          Divisão
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider border-b border-gray-200 text-right">
+                          Quantidade
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      {linhas.map((linha, index) => (
+                        <tr
+                          key={`${linha.numero_os ?? "os"}-${linha.divisao}`}
+                          className={
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                          }
+                        >
+                          <td className="px-4 py-3 border-b border-r border-gray-200">
+                            {linha.numero_os ??
+                              (data.num_os ||
+                                (referencia?.startsWith("OS ")
+                                  ? referencia.replace("OS ", "")
+                                  : ""))}
+                          </td>
+                          <td className="px-4 py-3 border-b border-r border-gray-200">
+                            {linha.divisao}
+                          </td>
+                          <td className="px-4 py-3 border-b border-gray-200 text-right font-medium">
+                            {editingRowIndex === index ? (
+                              <input
+                                type="number"
+                                value={tempQuantidade}
+                                onChange={(e) =>
+                                  setTempQuantidade(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleSalvarEdicao(index);
+                                  } else if (e.key === "Escape") {
+                                    handleCancelarEdicao();
+                                  }
+                                }}
+                                onBlur={() => handleSalvarEdicao(index)}
+                                className="w-full text-right border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#3C787A] focus:border-transparent bg-white"
+                                autoFocus
+                                min="1"
+                              />
+                            ) : (
+                              <span
+                                onClick={() => handleEditarQuantidade(index)}
+                                className={`cursor-pointer hover:bg-blue-50 hover:text-blue-700 px-2 py-1 rounded transition-colors inline-block w-full ${
+                                  obterQuantidadeAtual(linha) !==
+                                  linha.quantidade
+                                    ? "bg-yellow-50 text-yellow-800 font-semibold"
+                                    : ""
+                                }`}
+                                title={
+                                  obterQuantidadeAtual(linha) !==
+                                  linha.quantidade
+                                    ? `Clique para editar (alterado de ${linha.quantidade})`
+                                    : "Clique para editar"
+                                }
+                              >
+                                {obterQuantidadeAtual(linha).toLocaleString()}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center text-gray-500">
+                    <div className="w-16 h-16 mx-auto mb-4 opacity-20">
+                      <Search className="w-full h-full" />
+                    </div>
+                    <p className="text-sm">
+                      Nenhum resultado para exibir.
+                      <br />
+                      Pesquise por carga ou OS.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex flex-row justify-end gap-3 pt-4 border-t border-gray-200 md:justify-end">
@@ -770,12 +913,21 @@ export default function Evento1015({
         </button>
         <button
           onClick={handleSalvar}
-          className="flex-1 md:flex-none text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
+          className={`flex-1 md:flex-none text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm`}
           style={{ backgroundColor: "#3C787A" }}
           disabled={salvando}
+          title={
+            quantidadesAlteradas.size > 0
+              ? `Há ${quantidadesAlteradas.size} quantidade(s) alterada(s) para salvar`
+              : "Salvar evento"
+          }
         >
           <Save size={16} />
-          {salvando ? "Salvando..." : "Salvar"}
+          {salvando
+            ? "Salvando..."
+            : quantidadesAlteradas.size > 0
+            ? `Salvar (${quantidadesAlteradas.size} alterações)`
+            : "Salvar"}
         </button>
       </div>
 
